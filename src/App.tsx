@@ -1,23 +1,23 @@
-import React, { useState, useEffect } from "react";
-import { WingTraverse } from "./index";
-import { ProfileData, DeviceInfo } from "./types";
 import {
-  User,
-  Smartphone,
-  MessageSquare,
-  ExternalLink,
-  Share2,
-  Save,
-  Folder,
-  Shield,
-  Info,
-  CheckCircle,
   AlertCircle,
-  Wifi,
-  WifiOff,
   Bell,
   BellOff,
+  CheckCircle,
+  ExternalLink,
+  Folder,
+  Info,
+  MessageSquare,
+  Save,
+  Share2,
+  Shield,
+  Smartphone,
+  User,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { WingTraverse } from "./index";
+import { DeviceInfo, ProfileData } from "./types";
 
 function App() {
   const [profile, setProfile] = useState<ProfileData | null>(null);
@@ -31,20 +31,7 @@ function App() {
   const [notificationCount, setNotificationCount] = useState(0);
   const [isListeningToNotifications, setIsListeningToNotifications] =
     useState(false);
-  const [isClosing, setClosing] = useState(false);
 
-  useEffect(() => {
-    if (!WingTraverse.available()) {
-      WingTraverse.registerHandler("closeApp", (_data, callback) => {
-        setClosing(true);
-      });
-    }
-    // return () => {
-    //   WingTraverse.unregisterHandler(handle);
-    // };
-  }, []);
-
-  console.log(isClosing);
   useEffect(() => {
     setIsNativeAvailable(WingTraverse.available());
 
