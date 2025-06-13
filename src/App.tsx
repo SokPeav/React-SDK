@@ -66,7 +66,7 @@ function App() {
         "getProfile"
       );
 
-      console.log(profile)
+      console.log("data response", profile);
       setProfile(profileData);
       setMessage("Profile loaded successfully!");
     } catch (error) {
@@ -82,7 +82,7 @@ function App() {
     setLoading(true);
     try {
       const info = await WingTraverse.callHandler<DeviceInfo>("getDeviceInfo");
-      console.log(info)
+      console.log(info);
       setDeviceInfo(info);
       setMessage("Device info loaded successfully!");
     } catch (error) {

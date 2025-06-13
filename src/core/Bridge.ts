@@ -505,6 +505,7 @@ export class Bridge {
       } else {
         return;
       }
+    console.log("📥 Native message received:", message);
 
       // Check if it's a response to a pending request
       // if (message.requestId && this.pendingRequests.has(message.requestId)) {
