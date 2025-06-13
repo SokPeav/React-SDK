@@ -24,7 +24,6 @@ class WingTraverseSDK implements WingTraverseMethods {
    */
   available(): boolean {
     return this.bridge.isNativeAvailable();
-    // return this.bridge.isNativeAvailable();
   }
 
   /**

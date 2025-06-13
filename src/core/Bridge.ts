@@ -507,19 +507,19 @@ export class Bridge {
       }
 
       // Check if it's a response to a pending request
-      if (message.requestId && this.pendingRequests.has(message.requestId)) {
+      // if (message.requestId && this.pendingRequests.has(message.requestId)) {
         this.handleResponse(message);
-      }
+      // }
       // Check if it's a handler callback
-      else if (
-        message.handler &&
-        this.registeredHandlers.has(message.handler)
-      ) {
-        const callback = this.registeredHandlers.get(message.handler);
-        if (callback) {
-          callback(message.data);
-        }
-      }
+      // else if (
+      //   message.handler &&
+      //   this.registeredHandlers.has(message.handler)
+      // ) {
+      //   const callback = this.registeredHandlers.get(message.handler);
+      //   if (callback) {
+      //     callback(message.data);
+      //   }
+      // }
     } catch (error) {
       console.error("Error handling native message:", error);
     }
