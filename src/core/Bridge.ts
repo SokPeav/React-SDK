@@ -534,7 +534,7 @@ export class Bridge {
     clearTimeout(pendingRequest.timeout);
     this.pendingRequests.delete(response.requestId);
 
-    console.log(response.dat)
+    console.log(response.data)
     if (response.success) {
       pendingRequest.resolve(response.data);
     } else {
