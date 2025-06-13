@@ -466,11 +466,10 @@ export class Bridge {
     }
   >();
   private registeredHandlers = new Map<string, HandlerCallback>();
-
   private constructor() {
     this.setupMessageListener();
   }
-
+  
   public static getInstance(): Bridge {
     if (!Bridge.instance) {
       Bridge.instance = new Bridge();
@@ -583,8 +582,7 @@ export class Bridge {
   }
 
   private postToNative(request: WingTraverseRequest): void {
-    const message = JSON.stringify(request);
-
+    const message = JSON.stringify(request); 
     try {
       // iOS WebKit
       if ((window as any).webkit?.messageHandlers?.WingTraverse) {
@@ -593,16 +591,18 @@ export class Bridge {
         );
         return;
       }
-
+      
       // Android WebView
       if ((window as any).Android?.processWingTraverseRequest) {
         (window as any).Android.processWingTraverseRequest(message);
+        console.log(message)
         return;
       }
-
+      
       // React Native
       if ((window as any).ReactNativeWebView) {
         (window as any).ReactNativeWebView.postMessage(message);
+        console.log(message)
         return;
       }
 
@@ -701,10 +701,5 @@ export class Bridge {
       (window as any).Android?.processWingTraverseRequest ||
       (window as any).ReactNativeWebView
     );
-    // return !!(
-    //   (window as any).webkit?.messageHandlers?.WingTraverse ||
-    //   (window as any).Android?.processWingTraverseRequest ||
-    //   (window as any).ReactNativeWebView
-    // );
   }
 }
