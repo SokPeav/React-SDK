@@ -66,6 +66,7 @@ function App() {
         "getProfile"
       );
 
+      console.log(profile)
       setProfile(profileData);
       setMessage("Profile loaded successfully!");
     } catch (error) {
@@ -81,6 +82,7 @@ function App() {
     setLoading(true);
     try {
       const info = await WingTraverse.callHandler<DeviceInfo>("getDeviceInfo");
+      console.log(info)
       setDeviceInfo(info);
       setMessage("Device info loaded successfully!");
     } catch (error) {
@@ -276,16 +278,6 @@ function App() {
               ) : (
                 "Call getProfile Handler"
               )}
-            </button>
-            <button
-              onClick={async () => {
-                const pro = await WingTraverse.callHandler("getProfile");
-                console.log(pro);
-              }}
-              disabled={loading}
-              className="w-full mb-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center"
-            >
-              'Call getProfile TEst'
             </button>
 
             {profile && (
