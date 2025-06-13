@@ -526,12 +526,15 @@ export class Bridge {
   }
 
   private handleResponse(response: WingTraverseResponse): void {
+    console.log(response)
     const pendingRequest = this.pendingRequests.get(response.requestId);
+    console.log(pendingRequest)
     if (!pendingRequest) return;
 
     clearTimeout(pendingRequest.timeout);
     this.pendingRequests.delete(response.requestId);
 
+    console.log(response.dat)
     if (response.success) {
       pendingRequest.resolve(response.data);
     } else {
@@ -583,6 +586,7 @@ export class Bridge {
 
   private postToNative(request: WingTraverseRequest): void {
     const message = JSON.stringify(request); 
+    console.log(message)
     try {
       // iOS WebKit
       if ((window as any).webkit?.messageHandlers?.WingTraverse) {
