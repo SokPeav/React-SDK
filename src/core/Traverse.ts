@@ -42,7 +42,7 @@ class TraverseSDK {
     if (event.data && typeof event.data === "string") {
       message = JSON.parse(event);
     } else if (event.data && typeof event.data === "object") {
-      message = event.data;
+      message = event;
     } else if (typeof event === "string") {
       // Direct string response (Android)
       message = JSON.parse(event);
@@ -50,7 +50,7 @@ class TraverseSDK {
       return;
     }
     console.log("📥 Native message received:", JSON.stringify(message));
-    this.handleResponse(message);
+    this.handleResponse(JSON.parse(JSON.stringify(message)));
   }
 
   private handleResponse(response: TraverseResponse): void {
