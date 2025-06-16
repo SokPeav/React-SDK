@@ -39,17 +39,19 @@ class TraverseSDK {
   private handleNativeMessage(event: MessageEvent | any): void {
     let message: any;
 
-    if (typeof event === "string") {
+    if (event.data && typeof event.data === "string") {
       message = JSON.parse(event);
-    } else if (typeof event === "object") {
-      message = event;
+    } else if (event.data && typeof event.data === "object") {
+      message = event.data;
+    } else if (typeof event === "string") {
+      // Direct string response (Android)
+      message = JSON.parse(event);
     } else {
       return;
     }
     console.log("📥 Native message received:", JSON.stringify(message));
     this.handleResponse(message);
   }
-
 
   private handleResponse(response: TraverseResponse): void {
     const pendingRequest = this.pendingRequests.get(response.requestId);
