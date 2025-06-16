@@ -36,21 +36,55 @@ class TraverseSDK {
     }
   }
 
-  private handleNativeMessage(event: MessageEvent | any): void {
-    let message: any;
+  // private handleNativeMessage(event: MessageEvent | any): void {
+  //   let message: any;
 
-    if (event.data && typeof event.data === "string") {
-      message = JSON.parse(event);
-    } else if (event.data && typeof event.data === "object") {
-      message = event;
-    } else if (typeof event === "string") {
-      // Direct string response (Android)
-      message = JSON.parse(event);
-    } else {
-      return;
+  //   if (event.data && typeof event.data === "string") {
+  //     message = JSON.parse(event);
+  //   } else if (event.data && typeof event.data === "object") {
+  //     message = event.data;
+  //   } else if (typeof event === "string") {
+  //     // Direct string response (Android)
+  //     message = JSON.parse(event);
+  //   } else {
+  //     return;
+  //   }
+  //   console.log("📥 Native message received:", JSON.stringify(message));
+  //   this.handleResponse(message);
+  // }
+
+    private handleNativeMessage(event: MessageEvent<any> | string | object): void {
+    let message: any;
+  
+    try {
+      console.log("📨 Raw native message type:", typeof event);
+  
+      if (typeof event === "string") {
+        // Direct string from Android
+        message = JSON.parse(event);
+      } else if (event instanceof MessageEvent) {
+        // Event from postMessage
+        if (typeof event.data === "string") {
+          message = JSON.parse(event.data);
+        } else {
+          message = event.data;
+        }
+      } else if (typeof event === "object" && event !== null) {
+        // Direct object passed
+        message = event;
+      } else {
+        console.warn("⚠️ Unknown event format. Ignored:", event);
+        return;
+      }
+  
+      console.log("📥 Native message received:", JSON.stringify(message, null, 2));
+  
+      const res: TraverseResponse = message;
+      this.handleResponse(res);
+  
+    } catch (error) {
+      console.error("❌ Error handling native message:", error);
     }
-    console.log("📥 Native message received:", JSON.stringify(message));
-    this.handleResponse(JSON.parse(JSON.stringify(message)));
   }
 
   private handleResponse(response: TraverseResponse): void {
