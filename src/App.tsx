@@ -13,12 +13,14 @@ import {
   Download,
   X,
   Check,
+  LocateIcon
 } from "lucide-react";
 
 function App() {
   const [isConnected, setIsConnected] = useState(false);
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null);
+  const [locationInfo, setLocationInfo] = useState(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [showCloseDialog, setShowCloseDialog] = useState(false);
@@ -92,6 +94,18 @@ function App() {
       const deviceData = (await Traverse.bridge("getDeviceInfo")) as DeviceInfo;
       setDeviceInfo(deviceData);
       setMessage("Device info loaded successfully!");
+    } catch (error: any) {
+      setMessage(`Error: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleGetLocationInfo = async () => {
+    setLoading(true);
+    try {
+      const locationData = (await Traverse.bridge("getLocationInfo"));
+      setLocationInfo(locationData);
+      setMessage("Location info loaded successfully!");
     } catch (error: any) {
       setMessage(`Error: ${error.message}`);
     } finally {
@@ -332,6 +346,23 @@ function App() {
               </div>
             </div>
           </button>
+          <button
+            onClick={handleGetLocationInfo}
+            disabled={loading}
+            className="p-6 bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 disabled:opacity-50 group"
+          >
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-red-100 rounded-lg group-hover:bg-blue-200 transition-colors">
+                <LocateIcon className="w-6 h-6 text-blue-600" />
+              </div>
+              <div className="text-left">
+                <h3 className="font-semibold text-gray-900">Get Location</h3>
+                <p className="text-sm text-gray-500">
+                  Get Location information
+                </p>
+              </div>
+            </div>
+          </button>
 
           <button
             onClick={handleShowToast}
@@ -482,6 +513,22 @@ function App() {
                     </p>
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+          {locationInfo && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Smartphone className="w-5 h-5 text-blue-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Device Information
+                </h3>
+              </div>
+
+              <div className="space-y-3">
+                {locationInfo}
               </div>
             </div>
           )}
