@@ -23,18 +23,22 @@ class TraverseSDK {
     }
     return TraverseSDK.instance;
   }
+private setupMessageListener(): void {
+  if (typeof window !== "undefined") {
+    // Browser & web fallback
+    window.addEventListener("message", this.handleNativeMessage.bind(this));
 
-  private setupMessageListener(): void {
-    if (typeof window !== "undefined") {
-      window.addEventListener("message", this.handleNativeMessage.bind(this));
+    // Android WebView bridge
+    if ((window as any).Android) {
+      (window as any).TraverseNativeMessage = this.handleNativeMessage.bind(this);
+    }
 
-      // For Android WebView
-      if ((window as any).Android) {
-        (window as any).TraverseNativeMessage =
-          this.handleNativeMessage.bind(this);
-      }
+    // React Native WebView (Android & iOS)
+    if ((window as any).ReactNativeWebView) {
+      document.addEventListener("message", this.handleNativeMessage.bind(this));
     }
   }
+}
 
   // private handleNativeMessage(event: MessageEvent | any): void {
   //   let message: any;
