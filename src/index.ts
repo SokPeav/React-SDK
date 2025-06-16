@@ -1,15 +1,14 @@
 // Main exports
-export { WingTraverse } from './core/WingTraverse';
-export { default } from './core/WingTraverse';
+export { Traverse } from "./core/Traverse";
+export { default } from "./core/Traverse";
 
 // Type exports
 export type {
-  WingTraverseResponse,
-  WingTraverseRequest,
+  TraverseResponse,
+  TraverseRequest,
   ProfileData,
   DeviceInfo,
-  WingTraverseMethods
-} from './types';
+  WingTraverseMethods,
+} from "./types";
 
 // Bridge export for advanced usage
-export { Bridge } from './core/Bridge';

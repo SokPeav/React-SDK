@@ -1,78 +1,86 @@
+import React, { useState, useEffect, useRef } from "react";
+import { Traverse } from "./core/Traverse";
+import { ProfileData, DeviceInfo } from "./types";
 import {
-  AlertCircle,
-  Bell,
-  BellOff,
-  CheckCircle,
-  ExternalLink,
-  Folder,
-  Info,
-  MessageSquare,
-  Save,
-  Share2,
-  Shield,
   Smartphone,
   User,
+  Info,
   Wifi,
   WifiOff,
+  MessageSquare,
+  Bell,
+  Save,
+  Download,
+  X,
+  Check,
 } from "lucide-react";
-import { useEffect, useState } from "react";
-import { WingTraverse } from "./index";
-import { DeviceInfo, ProfileData } from "./types";
 
 function App() {
+  const [isConnected, setIsConnected] = useState(false);
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null);
-  const [isNativeAvailable, setIsNativeAvailable] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
-  const [storageKey, setStorageKey] = useState("");
-  const [storageValue, setStorageValue] = useState("");
-  const [retrievedValue, setRetrievedValue] = useState("");
-  const [notificationCount, setNotificationCount] = useState(0);
-  const [isListeningToNotifications, setIsListeningToNotifications] =
-    useState(false);
+  const [loading, setLoading] = useState(false);
+  const [showCloseDialog, setShowCloseDialog] = useState(false);
+  const [closeReason, setCloseReason] = useState("");
+  const [notifications, setNotifications] = useState<
+    Array<{ id: number; title: string; message: string }>
+  >([]);
+
+  const closeCallbackRef = useRef<((response?: any) => void) | null>(null);
 
   useEffect(() => {
-    setIsNativeAvailable(WingTraverse.available());
+    // Check connection status
+    setIsConnected(Traverse.available());
 
-    // Register notification handler
-    WingTraverse.registerHandler(
-      "onNotification",
-      (data: { title: string; message: string }) => {
-        setNotificationCount((prev) => prev + 1);
-        setMessage(`Notification received: ${data.title} - ${data.message}`);
+    // Register handler for close app requests from native
+    const closeHandlerId = Traverse.bridge(
+      "closeApp",
+      (data: any, callback?: (response?: any) => void) => {
+        console.log("Native wants to close app:", data);
+        setCloseReason(data?.reason || "Unknown reason");
+        setShowCloseDialog(true);
+        closeCallbackRef.current = callback || null;
       }
     );
 
-    // Register app state handler
-    WingTraverse.registerHandler(
-      "onAppStateChange",
-      (data: { state: string }) => {
-        setMessage(`App state changed to: ${data.state}`);
+    // Register handler for notifications from native
+    const notificationHandlerId = Traverse.bridge(
+      "onNotification",
+      (data: any) => {
+        const newNotification = {
+          id: Date.now(),
+          title: data.title || "Notification",
+          message: data.message || "No message",
+        };
+        setNotifications((prev) => [...prev, newNotification]);
+
+        // Auto remove after 5 seconds
+        setTimeout(() => {
+          setNotifications((prev) =>
+            prev.filter((n) => n.id !== newNotification.id)
+          );
+        }, 5000);
       }
     );
 
     return () => {
-      // Cleanup handlers on unmount
-      WingTraverse.unregisterHandler("onNotification");
-      WingTraverse.unregisterHandler("onAppStateChange");
+      // Cleanup handlers
+      if (Traverse.available()) {
+        Traverse.unregister(closeHandlerId as string);
+        Traverse.unregister(notificationHandlerId as string);
+      }
     };
   }, []);
 
   const handleGetProfile = async () => {
     setLoading(true);
     try {
-      const profileData = await WingTraverse.callHandler<ProfileData>(
-        "getProfile"
-      );
-
-      console.log("data response", profile);
+      const profileData = (await Traverse.bridge("getProfile")) as ProfileData;
       setProfile(profileData);
       setMessage("Profile loaded successfully!");
-    } catch (error) {
-      setMessage(
-        `Error: ${error instanceof Error ? error.message : "Unknown error"}`
-      );
+    } catch (error: any) {
+      setMessage(`Error: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -81,448 +89,428 @@ function App() {
   const handleGetDeviceInfo = async () => {
     setLoading(true);
     try {
-      const info = await WingTraverse.callHandler<DeviceInfo>("getDeviceInfo");
-      console.log(info);
-      setDeviceInfo(info);
+      const deviceData = (await Traverse.bridge("getDeviceInfo")) as DeviceInfo;
+      setDeviceInfo(deviceData);
       setMessage("Device info loaded successfully!");
-    } catch (error) {
-      setMessage(
-        `Error: ${error instanceof Error ? error.message : "Unknown error"}`
-      );
+    } catch (error: any) {
+      setMessage(`Error: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleShowToast = async (type: "success" | "error" | "info") => {
+  const handleShowToast = async () => {
+    setLoading(true);
     try {
-      await WingTraverse.callHandler("showToast", {
-        message: `This is a ${type} toast!`,
-        type,
+      await Traverse.bridge("showToast", { message: "Hello from WebView!" });
+      setMessage("Toast shown successfully!");
+    } catch (error: any) {
+      setMessage(`Error: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveData = async () => {
+    setLoading(true);
+    try {
+      await Traverse.bridge("saveToStorage", {
+        key: "user_preference",
+        value: { theme: "dark", notifications: true },
       });
-      setMessage(`${type} toast sent!`);
-    } catch (error) {
-      setMessage(
-        `Error: ${error instanceof Error ? error.message : "Unknown error"}`
-      );
+      setMessage("Data saved successfully!");
+    } catch (error: any) {
+      setMessage(`Error: ${error.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleOpenUrl = async () => {
+  const handleLoadData = async () => {
+    setLoading(true);
     try {
-      await WingTraverse.callHandler("openUrl", { url: "https://github.com" });
-      setMessage("URL opened in native browser!");
-    } catch (error) {
-      setMessage(
-        `Error: ${error instanceof Error ? error.message : "Unknown error"}`
-      );
-    }
-  };
-
-  const handleShare = async () => {
-    try {
-      await WingTraverse.callHandler("shareContent", {
-        content: "Check out this awesome WingTraverse bridge!",
-        title: "WingTraverse Demo",
+      const data = await Traverse.bridge("getFromStorage", {
+        key: "user_preference",
       });
-      setMessage("Content shared!");
-    } catch (error) {
-      setMessage(
-        `Error: ${error instanceof Error ? error.message : "Unknown error"}`
-      );
+      setMessage(`Loaded data: ${JSON.stringify(data)}`);
+    } catch (error: any) {
+      setMessage(`Error: ${error.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleSaveStorage = async () => {
-    if (!storageKey.trim()) return;
+  const handleSimulateNotification = async () => {
+    setLoading(true);
     try {
-      const value = storageValue.trim() || "Sample data";
-      await WingTraverse.callHandler("saveToStorage", {
-        key: storageKey,
-        value,
-      });
-      setMessage(`Saved "${value}" to key "${storageKey}"`);
-    } catch (error) {
-      setMessage(
-        `Error: ${error instanceof Error ? error.message : "Unknown error"}`
-      );
-    }
-  };
-
-  const handleGetStorage = async () => {
-    if (!storageKey.trim()) return;
-    try {
-      const value = await WingTraverse.callHandler("getFromStorage", {
-        key: storageKey,
-      });
-      setRetrievedValue(value || "No data found");
-      setMessage(`Retrieved data for key "${storageKey}"`);
-    } catch (error) {
-      setMessage(
-        `Error: ${error instanceof Error ? error.message : "Unknown error"}`
-      );
-    }
-  };
-
-  const handleRequestPermission = async () => {
-    try {
-      const granted = await WingTraverse.callHandler<boolean>(
-        "requestPermission",
-        { permission: "camera" }
-      );
-      setMessage(`Camera permission ${granted ? "granted" : "denied"}`);
-    } catch (error) {
-      setMessage(
-        `Error: ${error instanceof Error ? error.message : "Unknown error"}`
-      );
-    }
-  };
-
-  const toggleNotificationListener = () => {
-    if (isListeningToNotifications) {
-      WingTraverse.unregisterHandler("onNotification");
-      setIsListeningToNotifications(false);
-      setMessage("Stopped listening to notifications");
-    } else {
-      WingTraverse.registerHandler(
-        "onNotification",
-        (data: { title: string; message: string }) => {
-          setNotificationCount((prev) => prev + 1);
-          setMessage(`Notification received: ${data.title} - ${data.message}`);
-        }
-      );
-      setIsListeningToNotifications(true);
-      setMessage("Started listening to notifications");
-    }
-  };
-
-  const simulateNotification = async () => {
-    try {
-      await WingTraverse.callHandler("simulateNotification", {
+      await Traverse.bridge("simulateNotification", {
         title: "Test Notification",
-        message: "This is a simulated notification from the demo",
+        message: "This is a test notification from the bridge!",
       });
-      setMessage("Notification simulation requested");
-    } catch (error) {
-      setMessage(
-        `Error: ${error instanceof Error ? error.message : "Unknown error"}`
-      );
+      setMessage("Notification simulation triggered!");
+    } catch (error: any) {
+      setMessage(`Error: ${error.message}`);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const handleCloseResponse = (confirmed: boolean) => {
+    if (closeCallbackRef.current) {
+      closeCallbackRef.current({
+        confirmed,
+        timestamp: Date.now(),
+        reason: confirmed ? "user_confirmed" : "user_cancelled",
+      });
+      closeCallbackRef.current = null;
+    }
+    setShowCloseDialog(false);
+    setMessage(confirmed ? "App close confirmed" : "App close cancelled");
+  };
+
+  const removeNotification = (id: number) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            WingTraverse Handler Bridge
-          </h1>
-          <p className="text-gray-600 mb-4">
-            Generic Handler-Based WebView ↔ Native Communication
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-4xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <Smartphone className="w-6 h-6 text-blue-600" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">
+                  Traverse Bridge
+                </h1>
+                <p className="text-sm text-gray-500">
+                  WebView ↔ Native Communication
+                </p>
+              </div>
+            </div>
 
-          {/* Connection Status */}
-          <div
-            className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${
-              isNativeAvailable
-                ? "bg-green-100 text-green-800"
-                : "bg-yellow-100 text-yellow-800"
-            }`}
-          >
-            {isNativeAvailable ? (
-              <>
-                <Wifi className="w-4 h-4 mr-2" />
-                Native Bridge Connected
-              </>
-            ) : (
-              <>
-                <WifiOff className="w-4 h-4 mr-2" />
-                Development Mode (Mock Responses)
-              </>
-            )}
+            <div className="flex items-center space-x-2">
+              {isConnected ? (
+                <>
+                  <Wifi className="w-5 h-5 text-green-500" />
+                  <span className="text-sm font-medium text-green-600">
+                    Native Bridge Connected
+                  </span>
+                </>
+              ) : (
+                <>
+                  <WifiOff className="w-5 h-5 text-orange-500" />
+                  <span className="text-sm font-medium text-orange-600">
+                    Mock Mode (Development)
+                  </span>
+                </>
+              )}
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* Message Display */}
+      {/* Notifications */}
+      {notifications.length > 0 && (
+        <div className="fixed top-4 right-4 z-50 space-y-2">
+          {notifications.map((notification) => (
+            <div
+              key={notification.id}
+              className="bg-white border border-gray-200 rounded-lg shadow-lg p-4 max-w-sm animate-slide-in"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-start space-x-3">
+                  <Bell className="w-5 h-5 text-blue-500 mt-0.5" />
+                  <div>
+                    <h4 className="font-medium text-gray-900">
+                      {notification.title}
+                    </h4>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {notification.message}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => removeNotification(notification.id)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Close Dialog */}
+      {showCloseDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md mx-4">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="p-2 bg-red-100 rounded-lg">
+                <X className="w-6 h-6 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Close App Request
+                </h3>
+                <p className="text-sm text-gray-500">
+                  Native app wants to close
+                </p>
+              </div>
+            </div>
+
+            <p className="text-gray-700 mb-6">
+              Reason: <span className="font-medium">{closeReason}</span>
+            </p>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={() => handleCloseResponse(true)}
+                className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center space-x-2"
+              >
+                <Check className="w-4 h-4" />
+                <span>Confirm Close</span>
+              </button>
+              <button
+                onClick={() => handleCloseResponse(false)}
+                className="flex-1 bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors flex items-center justify-center space-x-2"
+              >
+                <X className="w-4 h-4" />
+                <span>Cancel</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content */}
+      <div className="max-w-4xl mx-auto px-6 py-8">
+        {/* Status Message */}
         {message && (
-          <div className="mb-6 p-4 bg-white rounded-lg shadow-md border-l-4 border-blue-500">
-            <div className="flex items-center">
-              <Info className="w-5 h-5 text-blue-500 mr-2" />
-              <span className="text-gray-700">{message}</span>
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <Info className="w-5 h-5 text-blue-600" />
+              <p className="text-blue-800">{message}</p>
             </div>
           </div>
         )}
 
+        {/* Action Buttons */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+          <button
+            onClick={handleGetProfile}
+            disabled={loading}
+            className="p-6 bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 disabled:opacity-50 group"
+          >
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-green-100 rounded-lg group-hover:bg-green-200 transition-colors">
+                <User className="w-6 h-6 text-green-600" />
+              </div>
+              <div className="text-left">
+                <h3 className="font-semibold text-gray-900">Get Profile</h3>
+                <p className="text-sm text-gray-500">Fetch user profile data</p>
+              </div>
+            </div>
+          </button>
+
+          <button
+            onClick={handleGetDeviceInfo}
+            disabled={loading}
+            className="p-6 bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 disabled:opacity-50 group"
+          >
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
+                <Smartphone className="w-6 h-6 text-blue-600" />
+              </div>
+              <div className="text-left">
+                <h3 className="font-semibold text-gray-900">Device Info</h3>
+                <p className="text-sm text-gray-500">Get device information</p>
+              </div>
+            </div>
+          </button>
+
+          <button
+            onClick={handleShowToast}
+            disabled={loading}
+            className="p-6 bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 disabled:opacity-50 group"
+          >
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-purple-100 rounded-lg group-hover:bg-purple-200 transition-colors">
+                <MessageSquare className="w-6 h-6 text-purple-600" />
+              </div>
+              <div className="text-left">
+                <h3 className="font-semibold text-gray-900">Show Toast</h3>
+                <p className="text-sm text-gray-500">Display native toast</p>
+              </div>
+            </div>
+          </button>
+
+          <button
+            onClick={handleSaveData}
+            disabled={loading}
+            className="p-6 bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 disabled:opacity-50 group"
+          >
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-orange-100 rounded-lg group-hover:bg-orange-200 transition-colors">
+                <Save className="w-6 h-6 text-orange-600" />
+              </div>
+              <div className="text-left">
+                <h3 className="font-semibold text-gray-900">Save Data</h3>
+                <p className="text-sm text-gray-500">Store data in native</p>
+              </div>
+            </div>
+          </button>
+
+          <button
+            onClick={handleLoadData}
+            disabled={loading}
+            className="p-6 bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 disabled:opacity-50 group"
+          >
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-teal-100 rounded-lg group-hover:bg-teal-200 transition-colors">
+                <Download className="w-6 h-6 text-teal-600" />
+              </div>
+              <div className="text-left">
+                <h3 className="font-semibold text-gray-900">Load Data</h3>
+                <p className="text-sm text-gray-500">Retrieve stored data</p>
+              </div>
+            </div>
+          </button>
+
+          <button
+            onClick={handleSimulateNotification}
+            disabled={loading}
+            className="p-6 bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 disabled:opacity-50 group"
+          >
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-red-100 rounded-lg group-hover:bg-red-200 transition-colors">
+                <Bell className="w-6 h-6 text-red-600" />
+              </div>
+              <div className="text-left">
+                <h3 className="font-semibold text-gray-900">
+                  Test Notification
+                </h3>
+                <p className="text-sm text-gray-500">
+                  Simulate notification callback
+                </p>
+              </div>
+            </div>
+          </button>
+        </div>
+
+        {/* Data Display */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Profile Section */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="flex items-center mb-4">
-              <User className="w-6 h-6 text-blue-600 mr-2" />
-              <h2 className="text-xl font-semibold">User Profile Handler</h2>
-            </div>
+          {/* Profile Data */}
+          {profile && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <User className="w-5 h-5 text-green-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  User Profile
+                </h3>
+              </div>
 
-            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-              <code className="text-sm text-gray-700">
-                await WingTraverse.callHandler&lt;ProfileData&gt;("getProfile")
-              </code>
-            </div>
-
-            <button
-              onClick={handleGetProfile}
-              disabled={loading}
-              className="w-full mb-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center"
-            >
-              {loading ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              ) : (
-                "Call getProfile Handler"
-              )}
-            </button>
-
-            {profile && (
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="flex items-center mb-3">
+              <div className="space-y-3">
+                <div className="flex items-center space-x-3">
                   {profile.avatar && (
                     <img
                       src={profile.avatar}
                       alt="Avatar"
-                      className="w-12 h-12 rounded-full mr-3"
+                      className="w-12 h-12 rounded-full object-cover"
                     />
                   )}
                   <div>
-                    <h3 className="font-semibold text-gray-900">
-                      {profile.name}
-                    </h3>
-                    <p className="text-gray-600 text-sm">{profile.email}</p>
+                    <p className="font-medium text-gray-900">{profile.name}</p>
+                    <p className="text-sm text-gray-500">{profile.email}</p>
                   </div>
                 </div>
-                <p className="text-xs text-gray-500">ID: {profile.id}</p>
-              </div>
-            )}
-          </div>
-
-          {/* Device Info Section */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="flex items-center mb-4">
-              <Smartphone className="w-6 h-6 text-green-600 mr-2" />
-              <h2 className="text-xl font-semibold">Device Info Handler</h2>
-            </div>
-
-            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-              <code className="text-sm text-gray-700">
-                await
-                WingTraverse.callHandler&lt;DeviceInfo&gt;("getDeviceInfo")
-              </code>
-            </div>
-
-            <button
-              onClick={handleGetDeviceInfo}
-              disabled={loading}
-              className="w-full mb-4 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors"
-            >
-              Call getDeviceInfo Handler
-            </button>
-
-            {deviceInfo && (
-              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Platform:</span>
-                  <span className="font-medium capitalize">
-                    {deviceInfo.platform}
-                  </span>
+                <div className="pt-2 border-t border-gray-100">
+                  <p className="text-sm text-gray-600">
+                    ID: <span className="font-mono">{profile.id}</span>
+                  </p>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Version:</span>
-                  <span className="font-medium">{deviceInfo.version}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Device Info */}
+          {deviceInfo && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Smartphone className="w-5 h-5 text-blue-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Device Information
+                </h3>
+              </div>
+
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-500">Platform</p>
+                    <p className="font-medium text-gray-900 capitalize">
+                      {deviceInfo.platform}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Version</p>
+                    <p className="font-medium text-gray-900">
+                      {deviceInfo.version}
+                    </p>
+                  </div>
                 </div>
                 {deviceInfo.model && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Model:</span>
-                    <span className="font-medium">{deviceInfo.model}</span>
+                  <div>
+                    <p className="text-sm text-gray-500">Model</p>
+                    <p className="font-medium text-gray-900">
+                      {deviceInfo.model}
+                    </p>
+                  </div>
+                )}
+                {deviceInfo.osVersion && (
+                  <div>
+                    <p className="text-sm text-gray-500">OS Version</p>
+                    <p className="font-medium text-gray-900 text-xs break-all">
+                      {deviceInfo.osVersion}
+                    </p>
                   </div>
                 )}
               </div>
-            )}
-          </div>
-
-          {/* Actions Section */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="flex items-center mb-4">
-              <MessageSquare className="w-6 h-6 text-purple-600 mr-2" />
-              <h2 className="text-xl font-semibold">Action Handlers</h2>
             </div>
-
-            <div className="space-y-3">
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  onClick={() => handleShowToast("success")}
-                  className="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded text-sm transition-colors flex items-center justify-center"
-                >
-                  <CheckCircle className="w-4 h-4 mr-1" />
-                  Success
-                </button>
-                <button
-                  onClick={() => handleShowToast("error")}
-                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded text-sm transition-colors flex items-center justify-center"
-                >
-                  <AlertCircle className="w-4 h-4 mr-1" />
-                  Error
-                </button>
-                <button
-                  onClick={() => handleShowToast("info")}
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded text-sm transition-colors flex items-center justify-center"
-                >
-                  <Info className="w-4 h-4 mr-1" />
-                  Info
-                </button>
-              </div>
-
-              <button
-                onClick={handleOpenUrl}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center"
-              >
-                <ExternalLink className="w-4 h-4 mr-2" />
-                Open GitHub
-              </button>
-
-              <button
-                onClick={handleShare}
-                className="w-full bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center"
-              >
-                <Share2 className="w-4 h-4 mr-2" />
-                Share Content
-              </button>
-
-              <button
-                onClick={handleRequestPermission}
-                className="w-full bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center"
-              >
-                <Shield className="w-4 h-4 mr-2" />
-                Request Camera Permission
-              </button>
-            </div>
-          </div>
-
-          {/* Storage Section */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="flex items-center mb-4">
-              <Folder className="w-6 h-6 text-yellow-600 mr-2" />
-              <h2 className="text-xl font-semibold">Storage Handlers</h2>
-            </div>
-
-            <div className="space-y-3">
-              <input
-                type="text"
-                placeholder="Storage key"
-                value={storageKey}
-                onChange={(e) => setStorageKey(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-              />
-
-              <input
-                type="text"
-                placeholder="Value to store"
-                value={storageValue}
-                onChange={(e) => setStorageValue(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-              />
-
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={handleSaveStorage}
-                  disabled={!storageKey.trim()}
-                  className="bg-yellow-600 hover:bg-yellow-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center"
-                >
-                  <Save className="w-4 h-4 mr-1" />
-                  Save
-                </button>
-                <button
-                  onClick={handleGetStorage}
-                  disabled={!storageKey.trim()}
-                  className="bg-gray-600 hover:bg-gray-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center"
-                >
-                  <Folder className="w-4 h-4 mr-1" />
-                  Get
-                </button>
-              </div>
-
-              {retrievedValue && (
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-sm text-gray-600 mb-1">Retrieved Value:</p>
-                  <p className="font-medium">{retrievedValue}</p>
-                </div>
-              )}
-            </div>
-          </div>
+          )}
         </div>
 
-        {/* Handler Registration Section */}
-        <div className="mt-6 bg-white rounded-xl shadow-lg p-6">
-          <div className="flex items-center mb-4">
-            <Bell className="w-6 h-6 text-pink-600 mr-2" />
-            <h2 className="text-xl font-semibold">Handler Registration Demo</h2>
-            {notificationCount > 0 && (
-              <span className="ml-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full">
-                {notificationCount}
-              </span>
-            )}
+        {/* Usage Examples */}
+        <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            Usage Examples
+          </h3>
+          <div className="space-y-4 text-sm">
+            <div className="bg-gray-50 rounded-lg p-4">
+              <p className="text-gray-600 mb-2">Call a handler:</p>
+              <code className="text-blue-600">
+                const result = await Traverse.bridge('getProfile');
+              </code>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-4">
+              <p className="text-gray-600 mb-2">Register a handler:</p>
+              <code className="text-blue-600">
+                const id = Traverse.bridge('closeApp', (data, callback) =`&gt;`{" "}
+                {"{}"});
+              </code>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-4">
+              <p className="text-gray-600 mb-2">Unregister a handler:</p>
+              <code className="text-blue-600">Traverse.unregister(id);</code>
+            </div>
           </div>
-
-          <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-            <code className="text-sm text-gray-700">
-              WingTraverse.registerHandler("onNotification", callback)
-            </code>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <button
-              onClick={toggleNotificationListener}
-              className={`px-4 py-2 rounded-lg transition-colors flex items-center justify-center ${
-                isListeningToNotifications
-                  ? "bg-red-600 hover:bg-red-700 text-white"
-                  : "bg-green-600 hover:bg-green-700 text-white"
-              }`}
-            >
-              {isListeningToNotifications ? (
-                <>
-                  <BellOff className="w-4 h-4 mr-2" />
-                  Stop Listening
-                </>
-              ) : (
-                <>
-                  <Bell className="w-4 h-4 mr-2" />
-                  Start Listening
-                </>
-              )}
-            </button>
-
-            <button
-              onClick={simulateNotification}
-              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center"
-            >
-              <MessageSquare className="w-4 h-4 mr-2" />
-              Simulate Notification
-            </button>
-
-            <button
-              onClick={() => setNotificationCount(0)}
-              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
-            >
-              Clear Count
-            </button>
-          </div>
-        </div>
-
-        {/* SDK Info */}
-        <div className="mt-8 text-center">
-          <p className="text-gray-500 text-sm">
-            WingTraverse SDK v{WingTraverse.getVersion()} - Handler-Based Bridge
-          </p>
-          <p className="text-gray-400 text-xs mt-1">
-            Available: {WingTraverse.available() ? "Yes" : "No"} | Methods:
-            callHandler, available, registerHandler, unregisterHandler
-          </p>
         </div>
       </div>
     </div>

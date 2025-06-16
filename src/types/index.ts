@@ -1,11 +1,11 @@
-export interface WingTraverseResponse<T = any> {
+export interface TraverseResponse<T = any> {
   success: boolean;
   data?: T;
   error?: string;
   requestId: string;
 }
 
-export interface WingTraverseRequest {
+export interface TraverseRequest {
   handler: string;
   params?: any;
   requestId: string;
@@ -18,6 +18,7 @@ export interface ProfileData {
   avatar?: string;
   preferences?: Record<string, any>;
 }
+
 
 export interface DeviceInfo {
   platform: "ios" | "android" | "web";
