@@ -13,7 +13,7 @@ import {
   Download,
   X,
   Check,
-  LocateIcon
+  LocateIcon,
 } from "lucide-react";
 
 function App() {
@@ -75,6 +75,7 @@ function App() {
     };
   }, []);
 
+  console.log(locationInfo);
   const handleGetProfile = async () => {
     setLoading(true);
     try {
@@ -103,7 +104,7 @@ function App() {
   const handleGetLocationInfo = async () => {
     setLoading(true);
     try {
-      const locationData = (await Traverse.bridge("getLocationInfo"));
+      const locationData = await Traverse.bridge("getLocationInfo");
       setLocationInfo(locationData);
       setMessage("Location info loaded successfully!");
     } catch (error: any) {
@@ -125,6 +126,7 @@ function App() {
     }
   };
 
+console.log("📍 Location Info from Native:", locationInfo);
   const handleSaveData = async () => {
     setLoading(true);
     try {
@@ -528,7 +530,8 @@ function App() {
               </div>
 
               <div className="space-y-3">
-                {locationInfo}
+                <p>Latitude: {locationInfo?.lat ?? "111"}</p>
+                <p>Longitude: {locationInfo?.lng ?? "22222"}</p>
               </div>
             </div>
           )}

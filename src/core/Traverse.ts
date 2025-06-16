@@ -228,6 +228,12 @@ private setupMessageListener(): void {
               "https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?w=150&h=150&fit=crop&crop=face",
           };
           break;
+        case "getLocationInfo":
+          mockData = {
+            lat: "111",
+            lng: "2222",
+          };
+          break;
         case "getDeviceInfo":
           mockData = {
             platform: "web",
