@@ -317,48 +317,33 @@ class TraverseSDK {
     return TraverseSDK.instance;
   }
 
-  public receiveFromNative = (rawMessage: any): void => {
+  public receiveFromNative = (
+    event: MessageEvent<any> | string | object
+  ): void => {
     let message: any;
 
     try {
-      if (typeof rawMessage === "string") {
-        message = JSON.parse(rawMessage);
-      } else if (rawMessage?.data) {
-        message =
-          typeof rawMessage.data === "string"
-            ? JSON.parse(rawMessage.data)
-            : rawMessage.data;
+      if (typeof event === "string") {
+        // Direct string from Android
+        message = JSON.parse(event);
+      } else if (event instanceof MessageEvent) {
+        // Event from postMessage
+        if (typeof event.data === "string") {
+          message = JSON.parse(event.data);
+        } else {
+          message = event.data;
+        }
+      } else if (typeof event === "object" && event !== null) {
+        // Direct object passed
+        message = event;
       } else {
-        message = rawMessage;
+        console.warn("⚠️ Unknown event format. Ignored:", event);
+        return;
       }
 
       console.log("📥 Native message received:", message);
 
-      // ✅ Support both responses and handler calls
-      if (message.requestId && "success" in message) {
-        this.handleResponse(message);
-      } else if (
-        message.handler &&
-        this.registeredHandlers.has(message.handler)
-      ) {
-        const callback = this.registeredHandlers.get(message.handler);
-        callback?.(message.params || {}, (responseData: any) => {
-          if (message.requestId) {
-            const response = {
-              requestId: message.requestId,
-              success: true,
-              data: responseData,
-            };
-            // Send callback result back to native if possible
-            const serialized = JSON.stringify(response);
-            if ((window as any).ReactNativeWebView) {
-              (window as any).ReactNativeWebView.postMessage(serialized);
-            } else {
-              console.warn("No post mechanism for callback response.");
-            }
-          }
-        });
-      }
+      this.handleResponse(message);
     } catch (error) {
       console.error("❌ Failed to handle native message:", error);
     }
