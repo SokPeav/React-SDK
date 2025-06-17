@@ -19,7 +19,6 @@ export interface ProfileData {
   preferences?: Record<string, any>;
 }
 
-
 export interface DeviceInfo {
   platform: "ios" | "android" | "web";
   version: string;
@@ -27,13 +26,25 @@ export interface DeviceInfo {
   osVersion?: string;
 }
 
-// Updated to support both simple callbacks and callback-with-response patterns
-export type HandlerCallback<T = any> = (data: T, callback?: (response?: any) => void) => void;
-
-
-export interface WingTraverseMethods {
-  callHandler<T = any>(handler: string, params?: any): Promise<T>;
-  available(): boolean;
-  registerHandler<T = any>(handler: string, callback: HandlerCallback<T>): void;
-  unregisterHandler(handler: string): void;
+export interface PendingRequest {
+  resolve: (value: unknown) => void;
+  reject: (error: Error) => void;
+  timeout: NodeJS.Timeout;
 }
+
+// Updated to support both simple callbacks and callback-with-response patterns
+export type HandlerCallback<T = unknown> = (
+  data: T,
+  callback?: (response?: unknown) => void
+) => void;
+
+export type NativeMessageEvent =
+  | MessageEvent<string | TraverseResponse>
+  | string
+  | object;
+// export interface WingTraverseMethods {
+//   callHandler<T = any>(handler: string, params?: any): Promise<T>;
+//   available(): boolean;
+//   registerHandler<T = any>(handler: string, callback: HandlerCallback<T>): void;
+//   unregisterHandler(handler: string): void;
+// }

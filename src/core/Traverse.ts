@@ -1,4 +1,10 @@
-import { TraverseRequest, TraverseResponse, HandlerCallback } from "../types";
+import {
+  TraverseRequest,
+  TraverseResponse,
+  HandlerCallback,
+  PendingRequest,
+  NativeMessageEvent,
+} from "../types";
 
 // class TraverseSDK {
 //   private static instance: TraverseSDK;
@@ -293,18 +299,264 @@ import { TraverseRequest, TraverseResponse, HandlerCallback } from "../types";
 //   }
 // }
 
+///////// V2
+// class TraverseSDK {
+//   private static instance: TraverseSDK;
+//   private pendingRequests = new Map<
+//     string,
+//     {
+//       resolve: (value: any) => void;
+//       reject: (error: Error) => void;
+//       timeout: NodeJS.Timeout;
+//     }
+//   >();
+//   private registeredHandlers = new Map<string, HandlerCallback>();
+//   private handlerIdCounter = 0;
+//   private bridgeName = "MINI_APP_BRIDGE";
+//   private constructor() {
+//     this.setupMessageListener();
+//   }
+
+//   public static getInstance(): TraverseSDK {
+//     if (!TraverseSDK.instance) {
+//       TraverseSDK.instance = new TraverseSDK();
+//     }
+//     return TraverseSDK.instance;
+//   }
+
+//   public receiveFromNative = (
+//     event: MessageEvent<any> | string | object
+//   ): void => {
+//     let message: any;
+
+//     try {
+//       if (typeof event === "string") {
+//         // Direct string from Android
+//         message = JSON.parse(event);
+//       } else if (event instanceof MessageEvent) {
+//         // Event from postMessage
+//         if (typeof event.data === "string") {
+//           message = JSON.parse(event.data);
+//         } else {
+//           message = event.data;
+//         }
+//       } else if (typeof event === "object" && event !== null) {
+//         // Direct object passed
+//         message = event;
+//       } else {
+//         console.warn("⚠️ Unknown event format. Ignored:", event);
+//         return;
+//       }
+
+//       console.log("📥 Native message received:", message);
+
+//       this.handleResponse(message);
+//     } catch (error) {
+//       console.error("❌ Failed to handle native message:", error);
+//     }
+//   };
+
+//   private setupMessageListener(): void {
+//     if (typeof window !== "undefined") {
+//       // Browser / React Native
+//       window.addEventListener("message", (e) => this.receiveFromNative(e));
+//       document.addEventListener("message", (e) => this.receiveFromNative(e));
+
+//       // Expose global function for native
+//       (window as any).TraverseNativeMessage = this.receiveFromNative;
+//     }
+//   }
+
+//   private handleResponse(response: TraverseResponse): void {
+//     const pendingRequest = this.pendingRequests.get(response.requestId);
+//     if (!pendingRequest) return;
+
+//     clearTimeout(pendingRequest.timeout);
+//     this.pendingRequests.delete(response.requestId);
+
+//     if (response.success) {
+//       pendingRequest.resolve(response.data);
+//     } else {
+//       pendingRequest.reject(new Error(response.error || "Unknown error"));
+//     }
+//   }
+
+//   bridge<T = any>(
+//     handler: string,
+//     paramsOrCallback?: any | HandlerCallback<T>,
+//     timeout = 10000
+//   ): Promise<T> | string {
+//     if (typeof paramsOrCallback === "function") {
+//       return this.registerHandler(handler, paramsOrCallback);
+//     }
+//     return this.callHandler<T>(handler, paramsOrCallback, timeout);
+//   }
+
+//   private callHandler<T = any>(
+//     handler: string,
+//     params?: any,
+//     timeout = 10000
+//   ): Promise<T> {
+//     return new Promise((resolve, reject) => {
+//       const requestId = this.generateRequestId();
+//       const request: TraverseRequest = { handler, params, requestId };
+
+//       const timeoutHandle = setTimeout(() => {
+//         this.pendingRequests.delete(requestId);
+//         reject(new Error(`Handler timeout: ${handler}`));
+//       }, timeout);
+
+//       this.pendingRequests.set(requestId, {
+//         resolve,
+//         reject,
+//         timeout: timeoutHandle,
+//       });
+//       this.postToNative(request);
+//     });
+//   }
+
+//   private registerHandler<T = any>(
+//     handler: string,
+//     callback: HandlerCallback<T>
+//   ): string {
+//     const handlerId = `${handler}_${++this.handlerIdCounter}`;
+//     this.registeredHandlers.set(handler, callback);
+//     return handlerId;
+//   }
+
+//   unregister(handlerId: string): void {
+//     const handler = handlerId.replace(/_\d+$/, "");
+//     this.registeredHandlers.delete(handler);
+//   }
+
+//   available(): boolean {
+//     return !!(
+//       (window as any).webkit?.messageHandlers?.Traverse ||
+//       (window as any).Android?.processTraverseRequest ||
+//       (window as any).ReactNativeWebView
+//     );
+//   }
+
+//   private postToNative(request: TraverseRequest): void {
+//     const message = JSON.stringify(request);
+
+//     try {
+//       if ((window as any).webkit?.messageHandlers?.Traverse) {
+//         (window as any).webkit.messageHandlers.Traverse.postMessage(request);
+//         return;
+//       }
+
+//       if ((window as any).Android?.processTraverseRequest) {
+//         (window as any).Android.processTraverseRequest(message);
+//         return;
+//       }
+
+//       if ((window as any).ReactNativeWebView?.postMessage) {
+//         (window as any).ReactNativeWebView.postMessage(message);
+//         return;
+//       }
+
+//       if (!this.available()) {
+//         console.warn("Traverse: Native bridge not found, using mock responses");
+//         this.simulateNativeResponse(request);
+//         return;
+//       }
+
+//       throw new Error("Native bridge not available");
+//     } catch (error) {
+//       console.error("Error posting to native:", error);
+//       const pendingRequest = this.pendingRequests.get(request.requestId);
+//       if (pendingRequest) {
+//         clearTimeout(pendingRequest.timeout);
+//         this.pendingRequests.delete(request.requestId);
+//         pendingRequest.reject(
+//           new Error("Failed to communicate with native layer")
+//         );
+//       }
+//     }
+//   }
+
+//   private simulateNativeResponse(request: TraverseRequest): void {
+//     setTimeout(() => {
+//       let mockData: any = {};
+
+//       switch (request.handler) {
+//         case "getProfile":
+//           mockData = {
+//             id: "mock-user-123",
+//             name: "John Doe",
+//             email: "john@example.com",
+//             avatar: "https://i.pravatar.cc/150?img=12",
+//           };
+//           break;
+//         case "getLocationInfo":
+//           mockData = { lat: "111", lng: "2222" };
+//           break;
+//         case "getDeviceInfo":
+//           mockData = {
+//             platform: "web",
+//             version: "1.0.0",
+//             model: "Browser",
+//             osVersion: navigator.userAgent,
+//           };
+//           break;
+//         case "getFromStorage":
+//           mockData = localStorage.getItem(request.params?.key);
+//           try {
+//             mockData = JSON.parse(mockData);
+//           } catch {}
+//           break;
+//         case "saveToStorage":
+//           if (request.params?.key && request.params?.value !== undefined) {
+//             localStorage.setItem(
+//               request.params.key,
+//               JSON.stringify(request.params.value)
+//             );
+//           }
+//           mockData = { success: true };
+//           break;
+//         case "simulateNotification":
+//           setTimeout(() => {
+//             const callback = this.registeredHandlers.get("onNotification");
+//             if (callback) {
+//               callback({
+//                 title: request.params?.title || "Mock Notification",
+//                 message:
+//                   request.params?.message || "This is a mock notification",
+//               });
+//             }
+//           }, 1000);
+//           mockData = { success: true };
+//           break;
+//         default:
+//           mockData = { success: true };
+//       }
+
+//       this.handleResponse({
+//         success: true,
+//         data: mockData,
+//         requestId: request.requestId,
+//       });
+//     }, 300);
+//   }
+
+//   private generateRequestId(): string {
+//     return `traverse_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+//   }
+
+//   getVersion(): string {
+//     return "2.0.0";
+//   }
+// }
+
 class TraverseSDK {
   private static instance: TraverseSDK;
-  private pendingRequests = new Map<
-    string,
-    {
-      resolve: (value: any) => void;
-      reject: (error: Error) => void;
-      timeout: NodeJS.Timeout;
-    }
-  >();
-  private registeredHandlers = new Map<string, HandlerCallback>();
+  private readonly pendingRequests = new Map<string, PendingRequest>();
+  private readonly registeredHandlers = new Map<string, HandlerCallback>();
   private handlerIdCounter = 0;
+
+  private readonly bridgeName = "TraverseBridge";
+  private readonly bridgeCallBackName = `${this.bridgeName}NativeMessage`;
 
   private constructor() {
     this.setupMessageListener();
@@ -317,10 +569,8 @@ class TraverseSDK {
     return TraverseSDK.instance;
   }
 
-  public receiveFromNative = (
-    event: MessageEvent<any> | string | object
-  ): void => {
-    let message: any;
+  public receiveFromNative = (event: NativeMessageEvent): void => {
+    let message: TraverseResponse;
 
     try {
       if (typeof event === "string") {
@@ -335,14 +585,13 @@ class TraverseSDK {
         }
       } else if (typeof event === "object" && event !== null) {
         // Direct object passed
-        message = event;
+        message = event as TraverseResponse;
       } else {
         console.warn("⚠️ Unknown event format. Ignored:", event);
         return;
       }
 
       console.log("📥 Native message received:", message);
-
       this.handleResponse(message);
     } catch (error) {
       console.error("❌ Failed to handle native message:", error);
@@ -352,11 +601,11 @@ class TraverseSDK {
   private setupMessageListener(): void {
     if (typeof window !== "undefined") {
       // Browser / React Native
-      window.addEventListener("message", (e) => this.receiveFromNative(e));
-      document.addEventListener("message", (e) => this.receiveFromNative(e));
+      window.addEventListener("message", this.receiveFromNative);
+      document.addEventListener("message", this.receiveFromNative);
 
       // Expose global function for native
-      (window as any).TraverseNativeMessage = this.receiveFromNative;
+      window[this.bridgeCallBackName] = this.receiveFromNative;
     }
   }
 
@@ -370,13 +619,21 @@ class TraverseSDK {
     if (response.success) {
       pendingRequest.resolve(response.data);
     } else {
-      pendingRequest.reject(new Error(response.error || "Unknown error"));
+      pendingRequest.reject(new Error(response.error ?? "Unknown error"));
     }
   }
 
-  bridge<T = any>(
+  /**
+   * Universal bridge function - handles both calling and registering handlers
+   *
+   * @param handler - Handler name
+   * @param paramsOrCallback - Parameters for calling or callback function for registering
+   * @param timeout - Timeout in milliseconds (only for calling handlers)
+   * @returns Promise<T> for calling handlers, string (handler ID) for registering handlers
+   */
+  bridge<T = unknown>(
     handler: string,
-    paramsOrCallback?: any | HandlerCallback<T>,
+    paramsOrCallback?: Record<string, unknown> | HandlerCallback<T>,
     timeout = 10000
   ): Promise<T> | string {
     if (typeof paramsOrCallback === "function") {
@@ -385,12 +642,12 @@ class TraverseSDK {
     return this.callHandler<T>(handler, paramsOrCallback, timeout);
   }
 
-  private callHandler<T = any>(
+  private callHandler<T = unknown>(
     handler: string,
-    params?: any,
+    params?: Record<string, unknown>,
     timeout = 10000
   ): Promise<T> {
-    return new Promise((resolve, reject) => {
+    return new Promise<T>((resolve, reject) => {
       const requestId = this.generateRequestId();
       const request: TraverseRequest = { handler, params, requestId };
 
@@ -400,20 +657,21 @@ class TraverseSDK {
       }, timeout);
 
       this.pendingRequests.set(requestId, {
-        resolve,
+        resolve: resolve as (value: unknown) => void,
         reject,
         timeout: timeoutHandle,
       });
+
       this.postToNative(request);
     });
   }
 
-  private registerHandler<T = any>(
+  private registerHandler<T = unknown>(
     handler: string,
     callback: HandlerCallback<T>
   ): string {
     const handlerId = `${handler}_${++this.handlerIdCounter}`;
-    this.registeredHandlers.set(handler, callback);
+    this.registeredHandlers.set(handler, callback as HandlerCallback);
     return handlerId;
   }
 
@@ -424,9 +682,9 @@ class TraverseSDK {
 
   available(): boolean {
     return !!(
-      (window as any).webkit?.messageHandlers?.Traverse ||
-      (window as any).Android?.processTraverseRequest ||
-      (window as any).ReactNativeWebView
+      window.webkit?.messageHandlers?.[this.bridgeName] ||
+      window[this.bridgeName]?.processRequest ||
+      window.ReactNativeWebView?.postMessage
     );
   }
 
@@ -434,36 +692,48 @@ class TraverseSDK {
     const message = JSON.stringify(request);
 
     try {
-      if ((window as any).webkit?.messageHandlers?.Traverse) {
-        (window as any).webkit.messageHandlers.Traverse.postMessage(request);
+      // iOS WebKit - Using unified "TraverseBridge" name
+      const iosBridge = window.webkit?.messageHandlers?.[this.bridgeName];
+      if (iosBridge) {
+        iosBridge.postMessage(request);
+        console.log("📤 Sent to iOS TraverseBridge:", request);
         return;
       }
 
-      if ((window as any).Android?.processTraverseRequest) {
-        (window as any).Android.processTraverseRequest(message);
+      // Android WebView - Using unified "TraverseBridge" name
+      const androidBridge = window[this.bridgeName]?.processRequest;
+      if (androidBridge) {
+        androidBridge(message);
+        console.log("📤 Sent to Android TraverseBridge:", message);
         return;
       }
 
-      if ((window as any).ReactNativeWebView?.postMessage) {
-        (window as any).ReactNativeWebView.postMessage(message);
+      // React Native - Using unified "TraverseBridge" name
+      const rnBridge = window.ReactNativeWebView?.postMessage;
+      if (rnBridge) {
+        rnBridge(message);
+        console.log("📤 Sent to React Native TraverseBridge:", message);
         return;
       }
 
+      // Fallback to mock if no native bridge available
       if (!this.available()) {
-        console.warn("Traverse: Native bridge not found, using mock responses");
+        console.warn(
+          "⚠️ TraverseBridge: Native bridge not found, using mock responses"
+        );
         this.simulateNativeResponse(request);
         return;
       }
 
-      throw new Error("Native bridge not available");
+      throw new Error("TraverseBridge not available on any platform");
     } catch (error) {
-      console.error("Error posting to native:", error);
+      console.error("❌ Error posting to TraverseBridge:", error);
       const pendingRequest = this.pendingRequests.get(request.requestId);
       if (pendingRequest) {
         clearTimeout(pendingRequest.timeout);
         this.pendingRequests.delete(request.requestId);
         pendingRequest.reject(
-          new Error("Failed to communicate with native layer")
+          new Error("Failed to communicate with TraverseBridge")
         );
       }
     }
@@ -471,7 +741,7 @@ class TraverseSDK {
 
   private simulateNativeResponse(request: TraverseRequest): void {
     setTimeout(() => {
-      let mockData: any = {};
+      let mockData: unknown = {};
 
       switch (request.handler) {
         case "getProfile":
@@ -482,45 +752,61 @@ class TraverseSDK {
             avatar: "https://i.pravatar.cc/150?img=12",
           };
           break;
+
         case "getLocationInfo":
-          mockData = { lat: "111", lng: "2222" };
+          mockData = {
+            lat: "111",
+            lng: "2222",
+          };
           break;
+
         case "getDeviceInfo":
           mockData = {
-            platform: "web",
+            platform: "web" as const,
             version: "1.0.0",
             model: "Browser",
             osVersion: navigator.userAgent,
           };
           break;
+
         case "getFromStorage":
-          mockData = localStorage.getItem(request.params?.key);
-          try {
-            mockData = JSON.parse(mockData);
-          } catch {}
+          const storageParams = request.params;
+          if (storageParams?.key) {
+            const storedValue = localStorage.getItem(storageParams.key);
+            try {
+              mockData = storedValue ? JSON.parse(storedValue) : null;
+            } catch {
+              mockData = storedValue;
+            }
+          }
           break;
+
         case "saveToStorage":
-          if (request.params?.key && request.params?.value !== undefined) {
+          const saveParams = request.params;
+          if (saveParams?.key && saveParams?.value !== undefined) {
             localStorage.setItem(
-              request.params.key,
-              JSON.stringify(request.params.value)
+              saveParams.key,
+              JSON.stringify(saveParams.value)
             );
           }
           mockData = { success: true };
           break;
+
         case "simulateNotification":
           setTimeout(() => {
             const callback = this.registeredHandlers.get("onNotification");
             if (callback) {
+              const notificationParams = request.params;
               callback({
-                title: request.params?.title || "Mock Notification",
+                title: notificationParams?.title || "Mock Notification",
                 message:
-                  request.params?.message || "This is a mock notification",
+                  notificationParams?.message || "This is a mock notification",
               });
             }
           }, 1000);
           mockData = { success: true };
           break;
+
         default:
           mockData = { success: true };
       }
