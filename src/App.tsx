@@ -7,7 +7,7 @@ import {
   User,
   Wifi,
   WifiOff,
-  X
+  X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Traverse } from "./core/Traverse";
@@ -36,7 +36,6 @@ function App() {
       (data: { reason: string }, callback) => {
         console.log("✅ Native wants to close app:", data);
         setCloseReason(data?.reason || "Unknown reason");
-        setShowCloseDialog(true);
         closeCallbackRef.current = callback || null;
       }
     );
@@ -86,20 +85,25 @@ function App() {
   };
 
   const handleCloseApp = async () => {
-    Traverse.bridge("closeApp", { reason: "Mock triggered from UI" });
+    setShowCloseDialog(true);
   };
   const handleCloseResponse = (confirmed: boolean) => {
-    console.log(closeCallbackRef);
-    if (closeCallbackRef.current) {
-      closeCallbackRef.current({
-        confirmed,
-        timestamp: Date.now(),
-        reason: confirmed ? "user_confirmed" : "user_cancelled",
-      });
-      closeCallbackRef.current = null;
+    console.log(confirmed);
+    if (confirmed) {
+      setShowCloseDialog(false);
+      Traverse.bridge("closeApp", { reason: "Mock triggered from UI" });
     }
+
     setShowCloseDialog(false);
-    setMessage(confirmed ? "App close confirmed" : "App close cancelled");
+    // if (closeCallbackRef.current) {
+    //   closeCallbackRef.current({
+    //     confirmed,
+    //     timestamp: Date.now(),
+    //     reason: confirmed ? "user_confirmed" : "user_cancelled",
+    //   });
+    //   closeCallbackRef.current = null;
+    // }
+    // setMessage(confirmed ? "App close confirmed" : "App close cancelled");
   };
 
   const removeNotification = (id: number) => {
