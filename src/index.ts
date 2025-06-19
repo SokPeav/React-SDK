@@ -8,7 +8,7 @@ export type {
   TraverseRequest,
   ProfileData,
   DeviceInfo,
-  WingTraverseMethods,
+  // WingTraverseMethods,
 } from "./types";
 
 // Bridge export for advanced usage

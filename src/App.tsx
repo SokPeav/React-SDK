@@ -1,20 +1,17 @@
-import React, { useState, useEffect, useRef } from "react";
-import { Traverse } from "./core/Traverse";
-import { ProfileData, DeviceInfo } from "./types";
 import {
+  Bell,
+  Check,
+  Info,
+  LocateIcon,
   Smartphone,
   User,
-  Info,
   Wifi,
   WifiOff,
-  MessageSquare,
-  Bell,
-  Save,
-  Download,
-  X,
-  Check,
-  LocateIcon,
+  X
 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Traverse } from "./core/Traverse";
+import { DeviceInfo, ProfileData } from "./types";
 
 function App() {
   const [isConnected, setIsConnected] = useState(false);
@@ -32,50 +29,25 @@ function App() {
   const closeCallbackRef = useRef<((response?: any) => void) | null>(null);
 
   useEffect(() => {
-    // Check connection status
     setIsConnected(Traverse.available());
 
-    // Register handler for close app requests from native
-    const closeHandlerId = Traverse.bridge(
+    const handlerId = Traverse.bridge(
       "closeApp",
-      (data: any, callback?: (response?: any) => void) => {
-        console.log("Native wants to close app:", data);
+      (data: { reason: string }, callback) => {
+        console.log("✅ Native wants to close app:", data);
         setCloseReason(data?.reason || "Unknown reason");
         setShowCloseDialog(true);
         closeCallbackRef.current = callback || null;
       }
     );
 
-    // Register handler for notifications from native
-    const notificationHandlerId = Traverse.bridge(
-      "onNotification",
-      (data: any) => {
-        const newNotification = {
-          id: Date.now(),
-          title: data.title || "Notification",
-          message: data.message || "No message",
-        };
-        setNotifications((prev) => [...prev, newNotification]);
-
-        // Auto remove after 5 seconds
-        setTimeout(() => {
-          setNotifications((prev) =>
-            prev.filter((n) => n.id !== newNotification.id)
-          );
-        }, 5000);
-      }
-    );
-
     return () => {
-      // Cleanup handlers
       if (Traverse.available()) {
-        Traverse.unregister(closeHandlerId as string);
-        Traverse.unregister(notificationHandlerId as string);
+        Traverse.unregister(handlerId as string);
       }
     };
   }, []);
 
-  console.log(locationInfo);
   const handleGetProfile = async () => {
     setLoading(true);
     try {
@@ -88,7 +60,6 @@ function App() {
       setLoading(false);
     }
   };
-
   const handleGetDeviceInfo = async () => {
     setLoading(true);
     try {
@@ -105,7 +76,7 @@ function App() {
     setLoading(true);
     try {
       const locationData = await Traverse.bridge("getLocationInfo");
-      setLocationInfo(locationData);
+      setLocationInfo(locationData as any);
       setMessage("Location info loaded successfully!");
     } catch (error: any) {
       setMessage(`Error: ${error.message}`);
@@ -114,64 +85,11 @@ function App() {
     }
   };
 
-  const handleShowToast = async () => {
-    setLoading(true);
-    try {
-      await Traverse.bridge("showToast", { message: "Hello from WebView!" });
-      setMessage("Toast shown successfully!");
-    } catch (error: any) {
-      setMessage(`Error: ${error.message}`);
-    } finally {
-      setLoading(false);
-    }
+  const handleCloseApp = async () => {
+    Traverse.bridge("closeApp", { reason: "Mock triggered from UI" });
   };
-
-console.log("📍 Location Info from Native:", locationInfo);
-  const handleSaveData = async () => {
-    setLoading(true);
-    try {
-      await Traverse.bridge("saveToStorage", {
-        key: "user_preference",
-        value: { theme: "dark", notifications: true },
-      });
-      setMessage("Data saved successfully!");
-    } catch (error: any) {
-      setMessage(`Error: ${error.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLoadData = async () => {
-    setLoading(true);
-    try {
-      const data = await Traverse.bridge("getFromStorage", {
-        key: "user_preference",
-      });
-      setMessage(`Loaded data: ${JSON.stringify(data)}`);
-    } catch (error: any) {
-      setMessage(`Error: ${error.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSimulateNotification = async () => {
-    setLoading(true);
-    try {
-      await Traverse.bridge("simulateNotification", {
-        title: "Test Notification",
-        message: "This is a test notification from the bridge!",
-      });
-      setMessage("Notification simulation triggered!");
-    } catch (error: any) {
-      setMessage(`Error: ${error.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleCloseResponse = (confirmed: boolean) => {
+    console.log(closeCallbackRef);
     if (closeCallbackRef.current) {
       closeCallbackRef.current({
         confirmed,
@@ -286,16 +204,14 @@ console.log("📍 Location Info from Native:", locationInfo);
             <div className="flex space-x-3">
               <button
                 onClick={() => handleCloseResponse(true)}
-                className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center space-x-2"
+                className=" bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center space-x-2"
               >
-                <Check className="w-4 h-4" />
                 <span>Confirm Close</span>
               </button>
               <button
                 onClick={() => handleCloseResponse(false)}
-                className="flex-1 bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors flex items-center justify-center space-x-2"
+                className=" bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors flex items-center justify-center space-x-2"
               >
-                <X className="w-4 h-4" />
                 <span>Cancel</span>
               </button>
             </div>
@@ -315,250 +231,124 @@ console.log("📍 Location Info from Native:", locationInfo);
           </div>
         )}
 
-        {/* Action Buttons */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-          <button
-            onClick={handleGetProfile}
-            disabled={loading}
-            className="p-6 bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 disabled:opacity-50 group"
-          >
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-green-100 rounded-lg group-hover:bg-green-200 transition-colors">
-                <User className="w-6 h-6 text-green-600" />
-              </div>
-              <div className="text-left">
-                <h3 className="font-semibold text-gray-900">Get Profile</h3>
-                <p className="text-sm text-gray-500">Fetch user profile data</p>
-              </div>
-            </div>
-          </button>
-
-          <button
-            onClick={handleGetDeviceInfo}
-            disabled={loading}
-            className="p-6 bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 disabled:opacity-50 group"
-          >
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
-                <Smartphone className="w-6 h-6 text-blue-600" />
-              </div>
-              <div className="text-left">
-                <h3 className="font-semibold text-gray-900">Device Info</h3>
-                <p className="text-sm text-gray-500">Get device information</p>
-              </div>
-            </div>
-          </button>
-          <button
-            onClick={handleGetLocationInfo}
-            disabled={loading}
-            className="p-6 bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 disabled:opacity-50 group"
-          >
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-red-100 rounded-lg group-hover:bg-blue-200 transition-colors">
-                <LocateIcon className="w-6 h-6 text-blue-600" />
-              </div>
-              <div className="text-left">
-                <h3 className="font-semibold text-gray-900">Get Location</h3>
-                <p className="text-sm text-gray-500">
-                  Get Location information
-                </p>
-              </div>
-            </div>
-          </button>
-
-          <button
-            onClick={handleShowToast}
-            disabled={loading}
-            className="p-6 bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 disabled:opacity-50 group"
-          >
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-purple-100 rounded-lg group-hover:bg-purple-200 transition-colors">
-                <MessageSquare className="w-6 h-6 text-purple-600" />
-              </div>
-              <div className="text-left">
-                <h3 className="font-semibold text-gray-900">Show Toast</h3>
-                <p className="text-sm text-gray-500">Display native toast</p>
-              </div>
-            </div>
-          </button>
-
-          <button
-            onClick={handleSaveData}
-            disabled={loading}
-            className="p-6 bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 disabled:opacity-50 group"
-          >
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-orange-100 rounded-lg group-hover:bg-orange-200 transition-colors">
-                <Save className="w-6 h-6 text-orange-600" />
-              </div>
-              <div className="text-left">
-                <h3 className="font-semibold text-gray-900">Save Data</h3>
-                <p className="text-sm text-gray-500">Store data in native</p>
-              </div>
-            </div>
-          </button>
-
-          <button
-            onClick={handleLoadData}
-            disabled={loading}
-            className="p-6 bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 disabled:opacity-50 group"
-          >
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-teal-100 rounded-lg group-hover:bg-teal-200 transition-colors">
-                <Download className="w-6 h-6 text-teal-600" />
-              </div>
-              <div className="text-left">
-                <h3 className="font-semibold text-gray-900">Load Data</h3>
-                <p className="text-sm text-gray-500">Retrieve stored data</p>
-              </div>
-            </div>
-          </button>
-
-          <button
-            onClick={handleSimulateNotification}
-            disabled={loading}
-            className="p-6 bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 disabled:opacity-50 group"
-          >
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-red-100 rounded-lg group-hover:bg-red-200 transition-colors">
-                <Bell className="w-6 h-6 text-red-600" />
-              </div>
-              <div className="text-left">
-                <h3 className="font-semibold text-gray-900">
-                  Test Notification
-                </h3>
-                <p className="text-sm text-gray-500">
-                  Simulate notification callback
-                </p>
-              </div>
-            </div>
-          </button>
-        </div>
-
-        {/* Data Display */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Profile Data */}
-          {profile && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <User className="w-5 h-5 text-green-600" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Profile Card with JSON */}
+          <div className="space-y-4">
+            {/* Button Card */}
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+              <button
+                onClick={handleGetProfile}
+                disabled={loading}
+                className="w-full flex items-center space-x-4 group"
+              >
+                <div className="p-2 bg-green-100 rounded-lg group-hover:bg-green-200 transition">
+                  <User className="w-6 h-6 text-green-600" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900">
-                  User Profile
-                </h3>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center space-x-3">
-                  {profile.avatar && (
-                    <img
-                      src={profile.avatar}
-                      alt="Avatar"
-                      className="w-12 h-12 rounded-full object-cover"
-                    />
-                  )}
-                  <div>
-                    <p className="font-medium text-gray-900">{profile.name}</p>
-                    <p className="text-sm text-gray-500">{profile.email}</p>
-                  </div>
-                </div>
-                <div className="pt-2 border-t border-gray-100">
-                  <p className="text-sm text-gray-600">
-                    ID: <span className="font-mono">{profile.id}</span>
+                <div className="text-left">
+                  <h3 className="font-semibold text-gray-900">Get Profile</h3>
+                  <p className="text-sm text-gray-500">
+                    Fetch user profile data
                   </p>
                 </div>
-              </div>
+              </button>
             </div>
-          )}
 
-          {/* Device Info */}
-          {deviceInfo && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Smartphone className="w-5 h-5 text-blue-600" />
+            {/* JSON Block aligned with button card */}
+            {profile && (
+              <div className="bg-gray-900 text-white rounded-xl border border-gray-700 p-4 text-sm">
+                <h4 className="font-semibold mb-2"> JSON Data</h4>
+                <pre className="whitespace-pre-wrap overflow-x-auto">
+                  {JSON.stringify(profile, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
+          <div className="space-y-4">
+            {/* Button Card */}
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+              <button
+                onClick={handleGetDeviceInfo}
+                disabled={loading}
+                className="w-full flex items-center space-x-4 group"
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
+                    <Smartphone className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="font-semibold text-gray-900">Device Info</h3>
+                    <p className="text-sm text-gray-500">
+                      Get device information
+                    </p>
+                  </div>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Device Information
-                </h3>
-              </div>
+              </button>
+            </div>
 
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Platform</p>
-                    <p className="font-medium text-gray-900 capitalize">
-                      {deviceInfo.platform}
-                    </p>
+            {/* JSON Block aligned with button card */}
+            {deviceInfo && (
+              <div className="bg-gray-900 text-white rounded-xl border border-gray-700 p-4 text-sm">
+                <h4 className="font-semibold mb-2"> JSON Data</h4>
+                <pre className="whitespace-pre-wrap overflow-x-auto">
+                  {JSON.stringify(deviceInfo, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
+          <div className="space-y-4">
+            {/* Button Card */}
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+              <button
+                onClick={handleGetLocationInfo}
+                disabled={loading}
+                className="w-full flex items-center space-x-4 group"
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-red-100 rounded-lg group-hover:bg-blue-200 transition-colors">
+                    <LocateIcon className="w-6 h-6 text-blue-600" />
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Version</p>
-                    <p className="font-medium text-gray-900">
-                      {deviceInfo.version}
+                  <div className="text-left">
+                    <h3 className="font-semibold text-gray-900">
+                      Get Location
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      Get Location information
                     </p>
                   </div>
                 </div>
-                {deviceInfo.model && (
-                  <div>
-                    <p className="text-sm text-gray-500">Model</p>
-                    <p className="font-medium text-gray-900">
-                      {deviceInfo.model}
-                    </p>
-                  </div>
-                )}
-                {deviceInfo.osVersion && (
-                  <div>
-                    <p className="text-sm text-gray-500">OS Version</p>
-                    <p className="font-medium text-gray-900 text-xs break-all">
-                      {deviceInfo.osVersion}
-                    </p>
-                  </div>
-                )}
-              </div>
+              </button>
             </div>
-          )}
-          {locationInfo && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Smartphone className="w-5 h-5 text-blue-600" />
+
+            {/* JSON Block aligned with button card */}
+            {locationInfo && (
+              <div className="bg-gray-900 text-white rounded-xl border border-gray-700 p-4 text-sm">
+                <h4 className="font-semibold mb-2"> JSON Data</h4>
+                <pre className="whitespace-pre-wrap overflow-x-auto">
+                  {JSON.stringify(locationInfo, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
+          <div className="space-y-4">
+            {/* Button Card */}
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+              <button
+                onClick={() => {
+                  handleCloseApp();
+                }}
+                disabled={loading}
+                className="w-full flex items-center space-x-4 group"
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-red-100 rounded-lg group-hover:bg-blue-200 transition-colors">
+                    <X className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="font-semibold text-gray-900">Close App</h3>
+                    <p className="text-sm text-gray-500">Close WebView Web</p>
+                  </div>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Device Information
-                </h3>
-              </div>
-
-              <div className="space-y-3">
-                <p>Latitude: {locationInfo?.lat ?? "111"}</p>
-                <p>Longitude: {locationInfo?.lng ?? "22222"}</p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Usage Examples */}
-        <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Usage Examples
-          </h3>
-          <div className="space-y-4 text-sm">
-            <div className="bg-gray-50 rounded-lg p-4">
-              <p className="text-gray-600 mb-2">Call a handler:</p>
-              <code className="text-blue-600">
-                const result = await Traverse.bridge('getProfile');
-              </code>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-4">
-              <p className="text-gray-600 mb-2">Register a handler:</p>
-              <code className="text-blue-600">
-                const id = Traverse.bridge('closeApp', (data, callback) =`&gt;`{" "}
-                {"{}"});
-              </code>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-4">
-              <p className="text-gray-600 mb-2">Unregister a handler:</p>
-              <code className="text-blue-600">Traverse.unregister(id);</code>
+              </button>
             </div>
           </div>
         </div>

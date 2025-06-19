@@ -574,23 +574,19 @@ class TraverseSDK {
 
     try {
       if (typeof event === "string") {
-        // Direct string from Android
         message = JSON.parse(event);
       } else if (event instanceof MessageEvent) {
-        // Event from postMessage
         if (typeof event.data === "string") {
           message = JSON.parse(event.data);
         } else {
           message = event.data;
         }
       } else if (typeof event === "object" && event !== null) {
-        // Direct object passed
         message = event as TraverseResponse;
       } else {
         console.warn("⚠️ Unknown event format. Ignored:", event);
         return;
       }
-
       console.log("📥 Native message received:", message);
       this.handleResponse(message);
     } catch (error) {
@@ -600,11 +596,8 @@ class TraverseSDK {
 
   private setupMessageListener(): void {
     if (typeof window !== "undefined") {
-      // Browser / React Native
       window.addEventListener("message", this.receiveFromNative);
       document.addEventListener("message", this.receiveFromNative);
-
-      // Expose global function for native
       window[this.bridgeCallBackName] = this.receiveFromNative;
     }
   }
@@ -645,7 +638,7 @@ class TraverseSDK {
   private callHandler<T = unknown>(
     handler: string,
     params?: Record<string, unknown>,
-    timeout = 10000
+    timeout = 100
   ): Promise<T> {
     return new Promise<T>((resolve, reject) => {
       const requestId = this.generateRequestId();
@@ -683,8 +676,8 @@ class TraverseSDK {
   available(): boolean {
     return !!(
       window.webkit?.messageHandlers?.[this.bridgeName] ||
-      window[this.bridgeName]?.processRequest ||
-      window.ReactNativeWebView?.postMessage
+      window[this.bridgeName] ||
+      window.ReactNativeWebView
     );
   }
 
@@ -701,17 +694,17 @@ class TraverseSDK {
       }
 
       // Android WebView - Using unified "TraverseBridge" name
-      const androidBridge = window[this.bridgeName]?.processRequest;
+      const androidBridge = window[this.bridgeName];
       if (androidBridge) {
-        androidBridge(message);
+        androidBridge.processRequest(message);
         console.log("📤 Sent to Android TraverseBridge:", message);
         return;
       }
 
       // React Native - Using unified "TraverseBridge" name
-      const rnBridge = window.ReactNativeWebView?.postMessage;
+      const rnBridge = window.ReactNativeWebView;
       if (rnBridge) {
-        rnBridge(message);
+        rnBridge.postMessage(message);
         console.log("📤 Sent to React Native TraverseBridge:", message);
         return;
       }
@@ -761,6 +754,7 @@ class TraverseSDK {
           break;
 
         case "getDeviceInfo":
+          console.log(request);
           mockData = {
             platform: "web" as const,
             version: "1.0.0",
@@ -768,44 +762,26 @@ class TraverseSDK {
             osVersion: navigator.userAgent,
           };
           break;
-
-        case "getFromStorage":
-          const storageParams = request.params;
-          if (storageParams?.key) {
-            const storedValue = localStorage.getItem(storageParams.key);
-            try {
-              mockData = storedValue ? JSON.parse(storedValue) : null;
-            } catch {
-              mockData = storedValue;
-            }
-          }
-          break;
-
-        case "saveToStorage":
-          const saveParams = request.params;
-          if (saveParams?.key && saveParams?.value !== undefined) {
-            localStorage.setItem(
-              saveParams.key,
-              JSON.stringify(saveParams.value)
-            );
-          }
-          mockData = { success: true };
-          break;
-
-        case "simulateNotification":
-          setTimeout(() => {
-            const callback = this.registeredHandlers.get("onNotification");
-            if (callback) {
-              const notificationParams = request.params;
-              callback({
-                title: notificationParams?.title || "Mock Notification",
-                message:
-                  notificationParams?.message || "This is a mock notification",
+        case "closeApp": {
+          const callback = this.registeredHandlers.get("closeApp");
+          if (callback) {
+            callback(request.params, (response) => {
+              console.log(response);
+              this.handleResponse({
+                success: true,
+                data: response || { confirmed: false },
+                requestId: request.requestId,
               });
-            }
-          }, 1000);
-          mockData = { success: true };
+            });
+          } else {
+            this.handleResponse({
+              success: false,
+              error: "No closeApp handler registered",
+              requestId: request.requestId,
+            });
+          }
           break;
+        }
 
         default:
           mockData = { success: true };
@@ -827,7 +803,5 @@ class TraverseSDK {
     return "2.0.0";
   }
 }
-
-// Export singleton instance
 export const Traverse = TraverseSDK.getInstance();
 export default Traverse;

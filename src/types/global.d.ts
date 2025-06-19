@@ -14,7 +14,7 @@ declare global {
 
     // Android WebView - Using unified name "TraverseBridge"
     [GLOBAL_BRIDGE_NAME]?: {
-      processRequest: (message: string) => void;
+      processRequest: (message: TraverseRequest) => void;
     };
 
     // React Native - Using unified name "TraverseBridge"
