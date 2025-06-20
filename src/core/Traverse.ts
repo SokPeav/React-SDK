@@ -554,7 +554,7 @@ class TraverseSDK {
   private readonly pendingRequests = new Map<string, PendingRequest>();
   private readonly registeredHandlers = new Map<string, HandlerCallback>();
   private handlerIdCounter = 0;
-
+  private baseNameToHandlerId = new Map<string, string>();
   private readonly bridgeName = "TraverseBridge";
   private readonly bridgeCallBackName = `${this.bridgeName}NativeMessage`;
 
@@ -587,7 +587,6 @@ class TraverseSDK {
         console.warn("⚠️ Unknown event format. Ignored:", event);
         return;
       }
-      console.log("📥 Native message received:", message);
       this.handleResponse(message);
     } catch (error) {
       console.error("❌ Failed to handle native message:", error);
@@ -659,20 +658,47 @@ class TraverseSDK {
     });
   }
 
-  private registerHandler<T = unknown>(
-    handler: string,
+  // private registerHandler<T = unknown>(
+  //   handler: string,
+  //   callback: HandlerCallback<T>
+  // ): string {
+  //   const handlerId = `${handler}_${++this.handlerIdCounter}`;
+  //   this.registeredHandlers.set(handler, callback as HandlerCallback);
+  //   return handlerId;
+  // }
+
+  // unregister(handlerId: string): void {
+  //   const handler = handlerId.replace(/_\d+$/, "");
+  //   this.registeredHandlers.delete(handler);
+  // }
+
+    private registerHandler<T = unknown>(
+    handlerBaseName: string,
     callback: HandlerCallback<T>
   ): string {
-    const handlerId = `${handler}_${++this.handlerIdCounter}`;
-    this.registeredHandlers.set(handler, callback as HandlerCallback);
+    // If already registered, unregister old one first
+    const existingHandlerId = this.baseNameToHandlerId.get(handlerBaseName);
+    if (existingHandlerId) {
+      this.unregister(existingHandlerId);
+    }
+
+    const handlerId = `${handlerBaseName}_${++this.handlerIdCounter}`;
+    this.registeredHandlers.set(handlerId, callback as HandlerCallback);
+    this.baseNameToHandlerId.set(handlerBaseName, handlerId);
     return handlerId;
   }
 
   unregister(handlerId: string): void {
-    const handler = handlerId.replace(/_\d+$/, "");
-    this.registeredHandlers.delete(handler);
-  }
+    if (!handlerId) return;
+    this.registeredHandlers.delete(handlerId);
 
+    // Also remove mapping from baseName to handlerId
+    const baseName = handlerId.replace(/_\d+$/, "");
+    const mappedId = this.baseNameToHandlerId.get(baseName);
+    if (mappedId === handlerId) {
+      this.baseNameToHandlerId.delete(baseName);
+    }
+  }
   available(): boolean {
     return !!(
       window.webkit?.messageHandlers?.[this.bridgeName] ||
@@ -754,7 +780,6 @@ class TraverseSDK {
           break;
 
         case "getDeviceInfo":
-          console.log(request);
           mockData = {
             platform: "web" as const,
             version: "1.0.0",
@@ -762,11 +787,15 @@ class TraverseSDK {
             osVersion: navigator.userAgent,
           };
           break;
+        case "setBarTitle":
+          const { title, color, bgColor } = request.params || {};
+          console.log("🖼️ Mock set bar title:", title, color, bgColor);
+          mockData = { success: true };
+          break;
         case "closeApp": {
           const callback = this.registeredHandlers.get("closeApp");
           if (callback) {
             callback(request.params, (response) => {
-              console.log(response);
               this.handleResponse({
                 success: true,
                 data: response || { confirmed: false },
@@ -777,6 +806,25 @@ class TraverseSDK {
             this.handleResponse({
               success: false,
               error: "No closeApp handler registered",
+              requestId: request.requestId,
+            });
+          }
+          break;
+        }
+        case "navigateTo": {
+          const callback = this.registeredHandlers.get("navigateTo");
+          if (callback) {
+            callback(request.params, (response) => {
+              this.handleResponse({
+                success: true,
+                data: response || { confirmed: true },
+                requestId: request.requestId,
+              });
+            });
+          } else {
+            this.handleResponse({
+              success: false,
+              error: "No navigateTo handler registered",
               requestId: request.requestId,
             });
           }

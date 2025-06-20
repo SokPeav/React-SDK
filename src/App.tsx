@@ -1,6 +1,7 @@
 import {
   Bell,
   Check,
+  Dices,
   Info,
   LocateIcon,
   Smartphone,
@@ -9,9 +10,66 @@ import {
   WifiOff,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Traverse } from "./core/Traverse";
 import { DeviceInfo, ProfileData } from "./types";
+
+function generateBeautifulColor() {
+  // Predefined beautiful color palettes
+  const beautifulColors = [
+    // Sunset/Warm colors
+    "#FF6B6B",
+    "#FF8E53",
+    "#FF6B9D",
+    "#C44569",
+    "#F8B500",
+    "#FF7675",
+    "#FDCB6E",
+    "#E17055",
+
+    // Ocean/Cool colors
+    "#74B9FF",
+    "#0984E3",
+    "#00B894",
+    "#00CEC9",
+    "#6C5CE7",
+    "#A29BFE",
+    "#81ECEC",
+    "#55A3FF",
+
+    // Nature colors
+    "#00B894",
+    "#55A3FF",
+    "#FDCB6E",
+    "#E17055",
+    "#A29BFE",
+    "#FD79A8",
+    "#FDCB6E",
+    "#6C5CE7",
+
+    // Pastel colors
+    "#FFB7B2",
+    "#FFDAC1",
+    "#E2F0CB",
+    "#B5EAD7",
+    "#C7CEEA",
+    "#FF9AA2",
+    "#FFB3BA",
+    "#FFDFBA",
+
+    // Vibrant colors
+    "#FF3838",
+    "#FF9500",
+    "#FFDD00",
+    "#48CAE4",
+    "#7209B7",
+    "#F72585",
+    "#4361EE",
+    "#4CC9F0",
+  ];
+
+  return beautifulColors[Math.floor(Math.random() * beautifulColors.length)];
+}
 
 function App() {
   const [isConnected, setIsConnected] = useState(false);
@@ -25,6 +83,7 @@ function App() {
   const [notifications, setNotifications] = useState<
     Array<{ id: number; title: string; message: string }>
   >([]);
+  const [backgroundColor, setBackgroundColor] = useState("#F5E6D3");
 
   const closeCallbackRef = useRef<((response?: any) => void) | null>(null);
 
@@ -39,10 +98,17 @@ function App() {
         closeCallbackRef.current = callback || null;
       }
     );
+    const handlerNavigateTo = Traverse.bridge(
+      "navigateTo",
+      ({ route }: { route: string }) => {
+        window.history.pushState({}, "", route);
+      }
+    );
 
     return () => {
       if (Traverse.available()) {
         Traverse.unregister(handlerId as string);
+        Traverse.unregister(handlerNavigateTo as string);
       }
     };
   }, []);
@@ -84,6 +150,21 @@ function App() {
     }
   };
 
+  const randomizeColor = useCallback(() => {
+    const bgColor = generateBeautifulColor();
+
+    Traverse.bridge("setBarTitle", {
+      title: "Hello world",
+      color: generateBeautifulColor(),
+      bgColor,
+    });
+
+    setBackgroundColor(bgColor);
+  }, []);
+  const handleNavigationTo = useCallback(() => {
+    Traverse.bridge("navigateTo", { route: "/profile" });
+  }, []);
+
   const handleCloseApp = async () => {
     setShowCloseDialog(true);
   };
@@ -91,7 +172,7 @@ function App() {
     console.log(confirmed);
     if (confirmed) {
       setShowCloseDialog(false);
-      Traverse.bridge("closeApp", { reason: "Mock triggered from UI" });
+      Traverse.bridge("closeApp");
     }
 
     setShowCloseDialog(false);
@@ -111,10 +192,16 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div
+      style={{ backgroundColor }}
+      className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50"
+    >
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-4xl mx-auto px-6 py-4">
+      <header
+        className="bg-white shadow-sm border-b"
+        style={{ backgroundColor }}
+      >
+        <div className="max-w-4xl mx-auto px-6 py-4 ">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="p-2 bg-blue-100 rounded-lg">
@@ -149,7 +236,7 @@ function App() {
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
       {/* Notifications */}
       {notifications.length > 0 && (
@@ -350,6 +437,50 @@ function App() {
                   <div className="text-left">
                     <h3 className="font-semibold text-gray-900">Close App</h3>
                     <p className="text-sm text-gray-500">Close WebView Web</p>
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+          <div className="space-y-4">
+            {/* Button Card */}
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+              <button
+                onClick={randomizeColor}
+                disabled={loading}
+                className="w-full flex items-center space-x-4 group"
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-red-100 rounded-lg group-hover:bg-pink-200 transition-colors">
+                    <Dices className="w-6 h-6 text-pink-600" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="font-semibold text-gray-900">
+                      Random Color
+                    </h3>
+                    <p className="text-sm text-gray-500">Random Bg for Web</p>
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+          <div className="space-y-4">
+            {/* Button Card */}
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+              <button
+                onClick={handleNavigationTo}
+                disabled={loading}
+                className="w-full flex items-center space-x-4 group"
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-red-100 rounded-lg group-hover:bg-pink-200 transition-colors">
+                    <Dices className="w-6 h-6 text-pink-600" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="font-semibold text-gray-900">
+                      Nagivation To
+                    </h3>
+                    <p className="text-sm text-gray-500">Random Bg for Web</p>
                   </div>
                 </div>
               </button>
