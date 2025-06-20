@@ -672,7 +672,7 @@ class TraverseSDK {
   //   this.registeredHandlers.delete(handler);
   // }
 
-    private registerHandler<T = unknown>(
+  private registerHandler<T = unknown>(
     handlerBaseName: string,
     callback: HandlerCallback<T>
   ): string {
@@ -830,6 +830,24 @@ class TraverseSDK {
           }
           break;
         }
+
+        case "doPayment":
+          // Simulate payment processing
+          const paymentParams = request.params as {
+            amount: string;
+            currency: string;
+            account: number;
+          };
+
+          // Simulate random success/failure for demo
+          mockData = {
+            success: true,
+            transactionId: `txn_${Date.now()}`,
+            account: paymentParams.account,
+            amount: paymentParams.amount,
+            currency: paymentParams.currency,
+          };
+          break;
 
         default:
           mockData = { success: true };

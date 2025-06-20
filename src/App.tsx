@@ -1,6 +1,7 @@
 import {
+  Banknote,
   Bell,
-  Check,
+  CreditCard,
   Dices,
   Info,
   LocateIcon,
@@ -8,7 +9,7 @@ import {
   User,
   Wifi,
   WifiOff,
-  X,
+  X
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Traverse } from "./core/Traverse";
@@ -84,6 +85,12 @@ function App() {
     Array<{ id: number; title: string; message: string }>
   >([]);
   const [backgroundColor, setBackgroundColor] = useState("#F5E6D3");
+  const [showPaymentConfirm, setShowPaymentConfirm] = useState(false);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentResult, setPaymentResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
 
   const closeCallbackRef = useRef<((response?: any) => void) | null>(null);
 
@@ -176,19 +183,40 @@ function App() {
     }
 
     setShowCloseDialog(false);
-    // if (closeCallbackRef.current) {
-    //   closeCallbackRef.current({
-    //     confirmed,
-    //     timestamp: Date.now(),
-    //     reason: confirmed ? "user_confirmed" : "user_cancelled",
-    //   });
-    //   closeCallbackRef.current = null;
-    // }
-    // setMessage(confirmed ? "App close confirmed" : "App close cancelled");
   };
 
   const removeNotification = (id: number) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
+  };
+
+  const handlePaymentConfirm = async (): Promise<void> => {
+    setPaymentLoading(true);
+    try {
+      // Call doPayment handler
+      Traverse.bridge("doPayment", {
+        amount: "10",
+        currency: "USD",
+        account: "00001",
+      });
+
+      setMessage("Payment successful! Your booking has been confirmed.");
+      setShowPaymentConfirm(false);
+
+      // Auto close after 3 seconds on success
+    } catch (error: any) {
+      setMessage(`Error: ${error.message}`);
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  const handlePaymentCancel = (): void => {
+    setShowPaymentConfirm(false);
+    setPaymentResult(null);
+  };
+  const handleShowPaymentDialog = (): void => {
+    setShowPaymentConfirm(true);
+    setPaymentResult(null);
   };
 
   return (
@@ -486,6 +514,89 @@ function App() {
               </button>
             </div>
           </div>
+          <div className="space-y-4">
+            {/* Button Card */}
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+              <button
+                onClick={handleShowPaymentDialog}
+                disabled={loading}
+                className="w-full flex items-center space-x-4 group"
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-purple-100 rounded-lg group-hover:bg-purple-200 transition-colors">
+                    <Banknote className="w-6 h-6 text-purple-600" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="font-semibold text-gray-900">Do Payment</h3>
+                    <p className="text-sm text-gray-500">Payment Action</p>
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {showPaymentConfirm && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
+                <div className="p-6">
+                  {/* // Payment Confirmation */}
+                  <>
+                    <div className="flex items-center space-x-3 mb-6">
+                      <div className="p-2 bg-blue-100 rounded-lg">
+                        <CreditCard className="w-6 h-6 text-blue-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          Confirm Payment
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          Review your payment details
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4 mb-6">
+                      <div className="flex items-center justify-between py-3 border-t border-gray-200">
+                        <span className="font-medium text-gray-900">
+                          Total Amount:
+                        </span>
+                        <span className="text-2xl font-bold text-gray-900">
+                          10 $
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex space-x-3">
+                      <button
+                        onClick={handlePaymentCancel}
+                        disabled={paymentLoading}
+                        className="flex-1 bg-gray-200 text-gray-800 px-4 py-3 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handlePaymentConfirm}
+                        disabled={paymentLoading}
+                        className="flex-1 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center space-x-2"
+                      >
+                        {paymentLoading ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            <span>Processing...</span>
+                          </>
+                        ) : (
+                          <>
+                            <CreditCard className="w-4 h-4" />
+                            <span>Confirm Payment</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
