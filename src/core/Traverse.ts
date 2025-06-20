@@ -841,7 +841,7 @@ class TraverseSDK {
 
           // Simulate random success/failure for demo
           mockData = {
-            success: true,
+            status: "success",
             transactionId: `txn_${Date.now()}`,
             account: paymentParams.account,
             amount: paymentParams.amount,
