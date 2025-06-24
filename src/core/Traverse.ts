@@ -658,19 +658,9 @@ class TraverseSDK {
     });
   }
 
-  // private registerHandler<T = unknown>(
-  //   handler: string,
-  //   callback: HandlerCallback<T>
-  // ): string {
-  //   const handlerId = `${handler}_${++this.handlerIdCounter}`;
-  //   this.registeredHandlers.set(handler, callback as HandlerCallback);
-  //   return handlerId;
-  // }
-
-  // unregister(handlerId: string): void {
-  //   const handler = handlerId.replace(/_\d+$/, "");
-  //   this.registeredHandlers.delete(handler);
-  // }
+  private generateRequestId(): string {
+    return `traverse_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
 
   private registerHandler<T = unknown>(
     handlerBaseName: string,
@@ -691,13 +681,6 @@ class TraverseSDK {
   unregister(handlerId: string): void {
     if (!handlerId) return;
     this.registeredHandlers.delete(handlerId);
-
-    // Also remove mapping from baseName to handlerId
-    const baseName = handlerId.replace(/_\d+$/, "");
-    const mappedId = this.baseNameToHandlerId.get(baseName);
-    if (mappedId === handlerId) {
-      this.baseNameToHandlerId.delete(baseName);
-    }
   }
   available(): boolean {
     return !!(
@@ -711,31 +694,13 @@ class TraverseSDK {
     const message = JSON.stringify(request);
 
     try {
-      // iOS WebKit - Using unified "TraverseBridge" name
-      const iosBridge = window.webkit?.messageHandlers?.[this.bridgeName];
-      if (iosBridge) {
-        iosBridge.postMessage(request);
-        console.log("📤 Sent to iOS TraverseBridge:", request);
-        return;
-      }
+      const ios = window.webkit?.messageHandlers?.[this.bridgeName]; //ios
+      const android = window[this.bridgeName]; // Android
+      const rn = window.ReactNativeWebView; // React Native
 
-      // Android WebView - Using unified "TraverseBridge" name
-      const androidBridge = window[this.bridgeName];
-      if (androidBridge) {
-        androidBridge.processRequest(message);
-        console.log("📤 Sent to Android TraverseBridge:", message);
-        return;
-      }
-
-      // React Native - Using unified "TraverseBridge" name
-      const rnBridge = window.ReactNativeWebView;
-      if (rnBridge) {
-        rnBridge.postMessage(message);
-        console.log("📤 Sent to React Native TraverseBridge:", message);
-        return;
-      }
-
-      // Fallback to mock if no native bridge available
+      if (ios) return ios.postMessage(request);
+      if (android) return android.processRequest(message);
+      if (rn) return rn.postMessage(message);
       if (!this.available()) {
         console.warn(
           "⚠️ TraverseBridge: Native bridge not found, using mock responses"
@@ -743,18 +708,8 @@ class TraverseSDK {
         this.simulateNativeResponse(request);
         return;
       }
-
-      throw new Error("TraverseBridge not available on any platform");
-    } catch (error) {
-      console.error("❌ Error posting to TraverseBridge:", error);
-      const pendingRequest = this.pendingRequests.get(request.requestId);
-      if (pendingRequest) {
-        clearTimeout(pendingRequest.timeout);
-        this.pendingRequests.delete(request.requestId);
-        pendingRequest.reject(
-          new Error("Failed to communicate with TraverseBridge")
-        );
-      }
+    } catch (e) {
+      console.error("❌ postToNative failed:", e);
     }
   }
 
@@ -859,14 +814,6 @@ class TraverseSDK {
         requestId: request.requestId,
       });
     }, 300);
-  }
-
-  private generateRequestId(): string {
-    return `traverse_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  }
-
-  getVersion(): string {
-    return "2.0.0";
   }
 }
 export const Traverse = TraverseSDK.getInstance();

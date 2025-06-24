@@ -84,7 +84,6 @@ function App() {
   const [notifications, setNotifications] = useState<
     Array<{ id: number; title: string; message: string }>
   >([]);
-  const [backgroundColor, setBackgroundColor] = useState("#F5E6D3");
   const [showPaymentConfirm, setShowPaymentConfirm] = useState(false);
   const [showPaymentSuccess, setShowPaymentSuccess] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
@@ -163,7 +162,6 @@ function App() {
       bgColor,
     });
 
-    setBackgroundColor(bgColor);
   }, []);
   const handleNavigationTo = useCallback(() => {
     Traverse.bridge("navigateTo", { route: "/profile" });
@@ -195,7 +193,7 @@ function App() {
         currency: "USD",
         account: "00001",
       });
-
+      console.log(payment);
       if (payment.status === "success") {
         setShowPaymentSuccess(true);
       }
@@ -219,13 +217,11 @@ function App() {
 
   return (
     <div
-      style={{ backgroundColor }}
       className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50"
     >
       {/* Header */}
       <header
         className="bg-white shadow-sm border-b"
-        style={{ backgroundColor }}
       >
         <div className="max-w-4xl mx-auto px-6 py-4 ">
           <div className="flex items-center justify-between">
