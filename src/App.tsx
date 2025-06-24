@@ -109,7 +109,7 @@ function App() {
     );
 
     return () => {
-      if (Traverse.available()) {
+      if (!Traverse.available()) {
         Traverse.unregister(handlerId as string);
         Traverse.unregister(handlerNavigateTo as string);
       }
@@ -161,7 +161,6 @@ function App() {
       color: generateBeautifulColor(),
       bgColor,
     });
-
   }, []);
   const handleNavigationTo = useCallback(() => {
     Traverse.bridge("navigateTo", { route: "/profile" });
@@ -216,13 +215,9 @@ function App() {
   };
 
   return (
-    <div
-      className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50"
-    >
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Header */}
-      <header
-        className="bg-white shadow-sm border-b"
-      >
+      <header className="bg-white shadow-sm border-b">
         <div className="max-w-4xl mx-auto px-6 py-4 ">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">

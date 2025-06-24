@@ -554,7 +554,7 @@ class TraverseSDK {
   private readonly pendingRequests = new Map<string, PendingRequest>();
   private readonly registeredHandlers = new Map<string, HandlerCallback>();
   private handlerIdCounter = 0;
-  private baseNameToHandlerId = new Map<string, string>();
+  private readonly baseNameToHandlerId = new Map<string, string>();
   private readonly bridgeName = "TraverseBridge";
   private readonly bridgeCallBackName = `${this.bridgeName}NativeMessage`;
 
@@ -605,7 +605,6 @@ class TraverseSDK {
     const pendingRequest = this.pendingRequests.get(response.requestId);
     if (!pendingRequest) return;
 
-    clearTimeout(pendingRequest.timeout);
     this.pendingRequests.delete(response.requestId);
 
     if (response.success) {
@@ -626,42 +625,30 @@ class TraverseSDK {
   bridge<T = unknown>(
     handler: string,
     paramsOrCallback?: Record<string, unknown> | HandlerCallback<T>,
-    timeout = 10000
   ): Promise<T> | string {
     if (typeof paramsOrCallback === "function") {
       return this.registerHandler(handler, paramsOrCallback);
     }
-    return this.callHandler<T>(handler, paramsOrCallback, timeout);
+    return this.callHandler<T>(handler, paramsOrCallback);
   }
 
   private callHandler<T = unknown>(
     handler: string,
     params?: Record<string, unknown>,
-    timeout = 100
   ): Promise<T> {
     return new Promise<T>((resolve, reject) => {
       const requestId = this.generateRequestId();
       const request: TraverseRequest = { handler, params, requestId };
 
-      const timeoutHandle = setTimeout(() => {
-        this.pendingRequests.delete(requestId);
-        reject(new Error(`Handler timeout: ${handler}`));
-      }, timeout);
 
       this.pendingRequests.set(requestId, {
         resolve: resolve as (value: unknown) => void,
         reject,
-        timeout: timeoutHandle,
       });
 
       this.postToNative(request);
     });
   }
-
-  private generateRequestId(): string {
-    return `traverse_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  }
-
   private registerHandler<T = unknown>(
     handlerBaseName: string,
     callback: HandlerCallback<T>
@@ -677,6 +664,11 @@ class TraverseSDK {
     this.baseNameToHandlerId.set(handlerBaseName, handlerId);
     return handlerId;
   }
+
+  private generateRequestId(): string {
+    return `traverse_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
 
   unregister(handlerId: string): void {
     if (!handlerId) return;

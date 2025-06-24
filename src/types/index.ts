@@ -29,7 +29,6 @@ export interface DeviceInfo {
 export interface PendingRequest {
   resolve: (value: unknown) => void;
   reject: (error: Error) => void;
-  timeout: NodeJS.Timeout;
 }
 
 // Updated to support both simple callbacks and callback-with-response patterns
