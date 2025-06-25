@@ -93,26 +93,15 @@ function App() {
   useEffect(() => {
     setIsConnected(Traverse.available());
 
-    const handlerId = Traverse.bridge(
-      "closeApp",
-      (data: { reason: string }, callback) => {
-        console.log("✅ Native wants to close app:", data);
-        setCloseReason(data?.reason || "Unknown reason");
-        closeCallbackRef.current = callback || null;
-      }
-    );
-    const handlerNavigateTo = Traverse.bridge(
-      "navigateTo",
-      ({ route }: { route: string }) => {
-        window.history.pushState({}, "", route);
-      }
-    );
+
+   const handlerId =  Traverse.bridge("closeApp", (data: any, callback) => {
+      console.log("✅ Native wants to close app:", data);
+      setCloseReason(data?.reason || "Unknown reason");
+      closeCallbackRef.current = callback || null;
+    });
 
     return () => {
-      if (!Traverse.available()) {
-        Traverse.unregister(handlerId as string);
-        Traverse.unregister(handlerNavigateTo as string);
-      }
+      Traverse.unregister(handlerId as string);
     };
   }, []);
 
@@ -170,10 +159,12 @@ function App() {
     setShowCloseDialog(true);
   };
   const handleCloseResponse = (confirmed: boolean) => {
-    console.log(confirmed);
     if (confirmed) {
-      setShowCloseDialog(false);
-      Traverse.bridge("closeApp");
+      if (closeCallbackRef.current) {
+        closeCallbackRef.current({ confirmed });
+      }
+      // setShowCloseDialog(false);
+      // Traverse.bridge("closeApp", { reason: "User clicked X" });
     }
 
     setShowCloseDialog(false);
@@ -217,6 +208,22 @@ function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Header */}
+      <button
+        onClick={() => {
+          window.dispatchEvent(
+            new MessageEvent("closeApp", {
+              data: JSON.stringify({
+                handler: "closeApp",
+                params: { reason: "User clicked closeApp" },
+                requestId: "mock-close-req-1",
+              }),
+            })
+          );
+        }}
+      >
+        Simulate CloseApp From Native
+      </button>
+
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-4xl mx-auto px-6 py-4 ">
           <div className="flex items-center justify-between">

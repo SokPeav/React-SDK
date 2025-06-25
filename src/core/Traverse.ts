@@ -554,7 +554,7 @@ class TraverseSDK {
   private readonly pendingRequests = new Map<string, PendingRequest>();
   private readonly registeredHandlers = new Map<string, HandlerCallback>();
   private handlerIdCounter = 0;
-  private readonly baseNameToHandlerId = new Map<string, string>();
+  private baseNameToHandlerId = new Map<string, string>();
   private readonly bridgeName = "TraverseBridge";
   private readonly bridgeCallBackName = `${this.bridgeName}NativeMessage`;
 
@@ -604,9 +604,6 @@ class TraverseSDK {
   private handleResponse(response: TraverseResponse): void {
     const pendingRequest = this.pendingRequests.get(response.requestId);
     if (!pendingRequest) return;
-
-    this.pendingRequests.delete(response.requestId);
-
     if (response.success) {
       pendingRequest.resolve(response.data);
     } else {
@@ -624,7 +621,7 @@ class TraverseSDK {
    */
   bridge<T = unknown>(
     handler: string,
-    paramsOrCallback?: Record<string, unknown> | HandlerCallback<T>,
+    paramsOrCallback?: Record<string, unknown> | HandlerCallback<T>
   ): Promise<T> | string {
     if (typeof paramsOrCallback === "function") {
       return this.registerHandler(handler, paramsOrCallback);
@@ -634,12 +631,11 @@ class TraverseSDK {
 
   private callHandler<T = unknown>(
     handler: string,
-    params?: Record<string, unknown>,
+    params?: Record<string, unknown>
   ): Promise<T> {
     return new Promise<T>((resolve, reject) => {
       const requestId = this.generateRequestId();
       const request: TraverseRequest = { handler, params, requestId };
-
 
       this.pendingRequests.set(requestId, {
         resolve: resolve as (value: unknown) => void,
@@ -668,7 +664,6 @@ class TraverseSDK {
   private generateRequestId(): string {
     return `traverse_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
-
 
   unregister(handlerId: string): void {
     if (!handlerId) return;
@@ -740,12 +735,18 @@ class TraverseSDK {
           mockData = { success: true };
           break;
         case "closeApp": {
-          const callback = this.registeredHandlers.get("closeApp");
+          const handlerId = this.baseNameToHandlerId.get("closeApp"); // ✅ get full key like "closeApp_1"
+          console.log(handlerId)
+          const callback = this.registeredHandlers.get(handlerId || "");
+          console.log(callback)
           if (callback) {
-            callback(request.params, (response) => {
+            callback(request.params || {}, (response) => {
+              console.log(response)
               this.handleResponse({
                 success: true,
-                data: response || { confirmed: false },
+                data: {
+                  ok:true
+                },
                 requestId: request.requestId,
               });
             });
@@ -758,6 +759,7 @@ class TraverseSDK {
           }
           break;
         }
+
         case "navigateTo": {
           const callback = this.registeredHandlers.get("navigateTo");
           if (callback) {
