@@ -12,7 +12,8 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Traverse } from "./core/Traverse";
+// import { Traverse } from "./core/Traverse";
+import { Traverse } from "traverse-sdk";
 import { DeviceInfo, ProfileData } from "./types";
 
 function generateBeautifulColor() {
@@ -92,13 +93,11 @@ function App() {
 
   useEffect(() => {
     setIsConnected(Traverse.available());
-
-    const handlerId = Traverse.bridge("closeApp", (data: any, callback) => {
-      console.log("✅ Native wants to close app:", data);
-      setCloseReason(data?.reason || "Unknown reason");
-      closeCallbackRef.current = callback || null;
-      setShowCloseDialog(true); // open your modal/dialog
-    });
+     const handlerId =  Traverse.bridge("closeApp", (data: any, callback) => {
+        console.log("✅ Native wants to close app:", data);
+        setCloseReason(data?.reason || "Unknown reason");
+        closeCallbackRef.current = callback || null;
+      });
 
     return () => {
       Traverse.unregister(handlerId as string);
@@ -169,6 +168,7 @@ function App() {
 
     setShowCloseDialog(false);
   };
+
 
   const removeNotification = (id: number) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id));

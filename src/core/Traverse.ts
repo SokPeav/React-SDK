@@ -571,6 +571,7 @@ class TraverseSDK {
 
   public receiveFromNative = (event: NativeMessageEvent): void => {
     let message: TraverseResponse;
+    console.log(message)
 
     try {
       if (typeof event === "string") {
@@ -736,7 +737,6 @@ class TraverseSDK {
           break;
         case "closeApp": {
           const handlerId = this.baseNameToHandlerId.get("closeApp"); // ✅ get full key like "closeApp_1"
-          console.log(handlerId)
           const callback = this.registeredHandlers.get(handlerId || "");
           console.log(callback)
           if (callback) {
@@ -744,9 +744,7 @@ class TraverseSDK {
               console.log(response)
               this.handleResponse({
                 success: true,
-                data: {
-                  ok:true
-                },
+                data: response,
                 requestId: request.requestId,
               });
             });
