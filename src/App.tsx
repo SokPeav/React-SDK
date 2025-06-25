@@ -93,11 +93,11 @@ function App() {
   useEffect(() => {
     setIsConnected(Traverse.available());
 
-
-   const handlerId =  Traverse.bridge("closeApp", (data: any, callback) => {
+    const handlerId = Traverse.bridge("closeApp", (data: any, callback) => {
       console.log("✅ Native wants to close app:", data);
       setCloseReason(data?.reason || "Unknown reason");
       closeCallbackRef.current = callback || null;
+      setShowCloseDialog(true); // open your modal/dialog
     });
 
     return () => {
