@@ -727,22 +727,17 @@ class TraverseSDK {
 
   private postToNative(id: number, event: string, data: unknown): void {
     const payload = { id, event, data };
-
+  const serializedData =
+      typeof data === "string" ? data : JSON.stringify(data);
     try {
       const ios = window.webkit?.messageHandlers?.[this.bridgeName]; //ios
       const android = window[this.bridgeName]; // Android
       const rn = window.ReactNativeWebView; // React Native
 
       if (ios) return ios.postMessage(payload);
-      if (android) return android.postMessage(id, event, data);
+      if (android) return android.postMessage(id, event, serializedData);
       if (rn) return rn.postMessage(JSON.stringify(payload));
-      // if (!this.available()) {
-      //   console.warn(
-      //     "⚠️ TraverseBridge: Native bridge not found, using mock responses"
-      //   );
-      //   this.simulateNativeResponse(request);
-      //   return;
-      // }
+
     } catch (e) {
       console.error("❌ postToNative failed:", e);
     }
