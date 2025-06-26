@@ -5,6 +5,7 @@ import {
   PendingRequest,
   NativeMessageEvent,
 } from "../types";
+import { EventEmitter2 } from "eventemitter2";
 
 // class TraverseSDK {
 //   private static instance: TraverseSDK;
@@ -557,11 +558,17 @@ class TraverseSDK {
   private baseNameToHandlerId = new Map<string, string>();
   private readonly bridgeName = "TraverseBridge";
   private readonly bridgeCallBackName = `${this.bridgeName}NativeMessage`;
-
+  private readonly emitter = new EventEmitter2();
   private constructor() {
     this.setupMessageListener();
   }
-
+  private setupMessageListener(): void {
+    if (typeof window !== "undefined") {
+      window.addEventListener("message", this.receiveFromNative);
+      document.addEventListener("message", this.receiveFromNative);
+      window[this.bridgeCallBackName] = this.receiveFromNative;
+    }
+  }
   public static getInstance(): TraverseSDK {
     if (!TraverseSDK.instance) {
       TraverseSDK.instance = new TraverseSDK();
@@ -570,7 +577,7 @@ class TraverseSDK {
   }
 
   public receiveFromNative = (event: NativeMessageEvent): void => {
-    let message: TraverseResponse;
+    let message: any;
 
     try {
       if (typeof event === "string") {
@@ -587,48 +594,37 @@ class TraverseSDK {
         console.warn("⚠️ Unknown event format. Ignored:", event);
         return;
       }
-      this.handleResponse(message);
+
+      console.log(message);
+      console.log(this.pendingRequests)
+      // Check if it's a response to a pending requestAdd commentMore actions
+      if (message.requestId && this.pendingRequests.has(message.requestId)) {
+        this.handleResponse(message);
+      }
+      // Check if it's a handler callback
+      else if (
+        message.handler &&
+        this.registeredHandlers.has(message.handler)
+      ) {
+        const callback = this.registeredHandlers.get(message.handler);
+        console.log(callback);
+        if (callback) {
+          callback(message.data);
+        }
+      }
     } catch (error) {
       console.error("❌ Failed to handle native message:", error);
     }
   };
 
-  private setupMessageListener(): void {
-    if (typeof window !== "undefined") {
-      window.addEventListener("message", this.receiveFromNative);
-      document.addEventListener("message", this.receiveFromNative);
-      window[this.bridgeCallBackName] = this.receiveFromNative;
-    }
-  }
   private handleResponse(response: TraverseResponse): void {
-    const { requestId, success, data, error, type } = response;
+    const pendingRequest = this.pendingRequests.get(response.requestId);
+    if (!pendingRequest) return;
 
-    // 1. Check for matching pending request
-    const pending = this.pendingRequests.get(requestId);
-    console.log(pending);
-    if (pending) {
-      this.pendingRequests.delete(requestId);
-      success
-        ? pending.resolve(data)
-        : pending.reject(new Error(error ?? "Unknown error"));
-      return;
-    }
-
-    // 2. If no pending, try to dispatch to registered handler (event-based)
-    if (type) {
-      const handlerId = this.baseNameToHandlerId.get(type);
-      const callback = handlerId && this.registeredHandlers.get(handlerId);
-      if (callback) {
-        callback(data, (callbackData: any) => {
-          this.postToNative({
-            handler: "callback",
-            requestId,
-            params: callbackData,
-          });
-        });
-      } else {
-        console.warn("⚠️ No registered handler for type:", type);
-      }
+    if (response.success) {
+      pendingRequest.resolve(response.data);
+    } else {
+      pendingRequest.reject(new Error(response.error ?? "Unknown error"));
     }
   }
 
@@ -670,7 +666,6 @@ class TraverseSDK {
     event: string,
     callback: HandlerCallback<T>
   ): string {
-    // If already registered, unregister old one first
     const existingHandlerId = this.baseNameToHandlerId.get(event);
     if (existingHandlerId) {
       this.unregister(existingHandlerId);
