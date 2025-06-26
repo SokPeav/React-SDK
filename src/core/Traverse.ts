@@ -571,7 +571,6 @@ class TraverseSDK {
 
   public receiveFromNative = (event: NativeMessageEvent): void => {
     let message: TraverseResponse;
-    console.log(message)
 
     try {
       if (typeof event === "string") {
@@ -601,14 +600,35 @@ class TraverseSDK {
       window[this.bridgeCallBackName] = this.receiveFromNative;
     }
   }
-
   private handleResponse(response: TraverseResponse): void {
-    const pendingRequest = this.pendingRequests.get(response.requestId);
-    if (!pendingRequest) return;
-    if (response.success) {
-      pendingRequest.resolve(response.data);
-    } else {
-      pendingRequest.reject(new Error(response.error ?? "Unknown error"));
+    const { requestId, success, data, error, type } = response;
+
+    // 1. Check for matching pending request
+    const pending = this.pendingRequests.get(requestId);
+    console.log(pending);
+    if (pending) {
+      this.pendingRequests.delete(requestId);
+      success
+        ? pending.resolve(data)
+        : pending.reject(new Error(error ?? "Unknown error"));
+      return;
+    }
+
+    // 2. If no pending, try to dispatch to registered handler (event-based)
+    if (type) {
+      const handlerId = this.baseNameToHandlerId.get(type);
+      const callback = handlerId && this.registeredHandlers.get(handlerId);
+      if (callback) {
+        callback(data, (callbackData: any) => {
+          this.postToNative({
+            handler: "callback",
+            requestId,
+            params: callbackData,
+          });
+        });
+      } else {
+        console.warn("⚠️ No registered handler for type:", type);
+      }
     }
   }
 
@@ -647,18 +667,18 @@ class TraverseSDK {
     });
   }
   private registerHandler<T = unknown>(
-    handlerBaseName: string,
+    event: string,
     callback: HandlerCallback<T>
   ): string {
     // If already registered, unregister old one first
-    const existingHandlerId = this.baseNameToHandlerId.get(handlerBaseName);
+    const existingHandlerId = this.baseNameToHandlerId.get(event);
     if (existingHandlerId) {
       this.unregister(existingHandlerId);
     }
 
-    const handlerId = `${handlerBaseName}_${++this.handlerIdCounter}`;
+    const handlerId = `${event}_${++this.handlerIdCounter}`;
     this.registeredHandlers.set(handlerId, callback as HandlerCallback);
-    this.baseNameToHandlerId.set(handlerBaseName, handlerId);
+    this.baseNameToHandlerId.set(event, handlerId);
     return handlerId;
   }
 
@@ -738,10 +758,10 @@ class TraverseSDK {
         case "closeApp": {
           const handlerId = this.baseNameToHandlerId.get("closeApp"); // ✅ get full key like "closeApp_1"
           const callback = this.registeredHandlers.get(handlerId || "");
-          console.log(callback)
+          console.log(callback);
           if (callback) {
             callback(request.params || {}, (response) => {
-              console.log(response)
+              console.log(response);
               this.handleResponse({
                 success: true,
                 data: response,
