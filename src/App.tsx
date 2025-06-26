@@ -12,8 +12,8 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-// import { Traverse } from "./core/Traverse";
-import { Traverse } from "traverse-sdk";
+import { Traverse } from "./core/Traverse";
+// import { Traverse } from "traverse-sdk";
 import { DeviceInfo, ProfileData } from "./types";
 
 function generateBeautifulColor() {
