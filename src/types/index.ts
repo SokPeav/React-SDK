@@ -3,13 +3,12 @@ export interface TraverseResponse<T = any> {
   data?: T;
   error?: string;
   requestId: string;
-  type?: string; // <-- Add this line
   
 }
 
 export interface TraverseRequest {
-  handler: string;
-  params?: any;
+  event: string;
+  data?: any;
   requestId: string;
 }
 

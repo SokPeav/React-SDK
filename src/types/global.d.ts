@@ -7,23 +7,28 @@ declare global {
     webkit?: {
       messageHandlers?: {
         [GLOBAL_BRIDGE_NAME]?: {
-          postMessage: (message: TraverseRequest) => void;
+          postMessage: (payload: { id: number; event: string; data: unknown }) => void;
         };
       };
     };
 
     // Android WebView - Using unified name "TraverseBridge"
     [GLOBAL_BRIDGE_NAME]?: {
-      processRequest: (message: TraverseRequest) => void;
+      postMessage: (id: number, event: string, data: unknown) => void;
     };
 
     // React Native - Using unified name "TraverseBridge"
     ReactNativeWebView?: {
-      postMessage: (message: string) => void;
+  postMessage: (message: string) => void; // serialized JSON string
     };
 
     // Global callback function for native responses
-    [GLOBAL_BRIDGE_CALLBACK_NAME]?: (event: string | TraverseResponse) => void;
+    [GLOBAL_BRIDGE_CALLBACK_NAME]?: (
+      id: number,
+      event: string,
+      data: string,
+      action?: string
+    ) => void;
   }
 }
 
