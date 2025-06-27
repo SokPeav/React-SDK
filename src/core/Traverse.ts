@@ -620,10 +620,8 @@ class TraverseSDK {
     const isEvent = id === -1 || typeof id !== "number";
     if (isEvent) {
       const eventName = typeof id === "string" ? id : event;
-      const jsonData =
-        typeof event === "string" && typeof data === "string" ? data : event;
 
-      this.handleNativeEvent(eventName, jsonData, action);
+      this.handleNativeEvent(eventName, data, action);
     } else {
       this.handleNativeResponse(id, data);
     }
@@ -635,7 +633,7 @@ class TraverseSDK {
     action?: string
   ): void {
     try {
-      const parsedData = JSON.parse(data);
+      const parsedData = data !== "" ? JSON.parse(data) : data;
       const callback = action
         ? (payload: any) => this.callHandler(action, payload)
         : undefined;
@@ -657,7 +655,7 @@ class TraverseSDK {
         pending.reject(err instanceof Error ? err : new Error(String(err)));
       }
     } else {
-      pending.resolve(data); 
+      pending.resolve(data);
     }
   }
 
@@ -717,6 +715,18 @@ class TraverseSDK {
             version: "1.0.0",
             model: "Browser",
             osVersion: navigator.userAgent,
+          };
+          break;
+        case "setBarTitle":
+          mockData = {
+            title: "testing",
+            color: "#FF6B6B",
+            bgColor: "#0984E3",
+          };
+          break;
+        case "closeApp":
+          mockData = {
+            reason: "test leng",
           };
           break;
 

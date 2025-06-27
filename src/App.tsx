@@ -77,6 +77,7 @@ function App() {
   const [profile, setProfile] = useState(null);
   const [deviceInfo, setDeviceInfo] = useState(null);
   const [locationInfo, setLocationInfo] = useState(null);
+  const [barTitleInfo, setBarTitleInfo] = useState(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [showCloseDialog, setShowCloseDialog] = useState(false);
@@ -141,21 +142,20 @@ function App() {
     }
   };
 
-  const randomizeColor = useCallback(() => {
+  const randomizeColor = useCallback(async () => {
     const bgColor = generateBeautifulColor();
 
-    Traverse.bridge("setBarTitle", {
-      title: "Hello world",
+    const barTitle: any = await Traverse.bridge("setBarTitle", {
+      title: "Coffee Tnol",
       color: generateBeautifulColor(),
       bgColor,
     });
-  }, []);
-  const handleNavigationTo = useCallback(() => {
-    Traverse.bridge("navigateTo", { route: "/profile" });
+    setBarTitleInfo(barTitle);
   }, []);
 
   const handleCloseApp = async () => {
-    setShowCloseDialog(true);
+    const openOrNah = !isConnected ? false : true;
+    setShowCloseDialog(openOrNah);
   };
   const handleCloseResponse = (confirmed: boolean) => {
     if (confirmed) {
@@ -180,7 +180,6 @@ function App() {
         currency: "USD",
         account: "00001",
       });
-      console.log(payment);
       if (payment.status === "success") {
         setShowPaymentSuccess(true);
       }
@@ -424,28 +423,7 @@ function App() {
               </div>
             )}
           </div>
-          <div className="space-y-4">
-            {/* Button Card */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-              <button
-                onClick={() => {
-                  handleCloseApp();
-                }}
-                disabled={loading}
-                className="w-full flex items-center space-x-4 group"
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-red-100 rounded-lg group-hover:bg-blue-200 transition-colors">
-                    <X className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <div className="text-left">
-                    <h3 className="font-semibold text-gray-900">Close App</h3>
-                    <p className="text-sm text-gray-500">Close WebView Web</p>
-                  </div>
-                </div>
-              </button>
-            </div>
-          </div>
+       
           <div className="space-y-4">
             {/* Button Card */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
@@ -467,24 +445,34 @@ function App() {
                 </div>
               </button>
             </div>
+
+            {/* JSON Block aligned with button card */}
+            {barTitleInfo && (
+              <div className="bg-gray-900 text-white rounded-xl border border-gray-700 p-4 text-sm">
+                <h4 className="font-semibold mb-2"> JSON Data</h4>
+                <pre className="whitespace-pre-wrap overflow-x-auto">
+                  {JSON.stringify(barTitleInfo, null, 2)}
+                </pre>
+              </div>
+            )}
           </div>
-          <div className="space-y-4">
+   <div className="space-y-4">
             {/* Button Card */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
               <button
-                onClick={handleNavigationTo}
+                onClick={() => {
+                  handleCloseApp();
+                }}
                 disabled={loading}
                 className="w-full flex items-center space-x-4 group"
               >
                 <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-red-100 rounded-lg group-hover:bg-pink-200 transition-colors">
-                    <Dices className="w-6 h-6 text-pink-600" />
+                  <div className="p-2 bg-red-100 rounded-lg group-hover:bg-blue-200 transition-colors">
+                    <X className="w-6 h-6 text-blue-600" />
                   </div>
                   <div className="text-left">
-                    <h3 className="font-semibold text-gray-900">
-                      Nagivation To
-                    </h3>
-                    <p className="text-sm text-gray-500">Random Bg for Web</p>
+                    <h3 className="font-semibold text-gray-900">Close App</h3>
+                    <p className="text-sm text-gray-500">Close WebView Web</p>
                   </div>
                 </div>
               </button>
