@@ -7,7 +7,7 @@ declare global {
     webkit?: {
       messageHandlers?: {
         [GLOBAL_BRIDGE_NAME]?: {
-          postMessage: (payload: { id: number; event: string; data: unknown }) => void;
+          postMessage: (id: number, event: string, data: unknown ) => void;
         };
       };
     };

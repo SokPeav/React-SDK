@@ -1,8 +1,5 @@
 import { EventEmitter2 } from "eventemitter2";
-import {
-  HandlerCallback,
-  PendingRequest
-} from "../types";
+import { HandlerCallback, PendingRequest } from "../types";
 
 // class TraverseSDK {
 //   private static instance: TraverseSDK;
@@ -653,10 +650,14 @@ class TraverseSDK {
     if (!pending) return;
 
     this.resolvers.delete(id);
-    try {
-      pending.resolve(JSON.parse(data));
-    } catch (err) {
-      pending.reject(err instanceof Error ? err : new Error(String(err)));
+    if (typeof data === "string") {
+      try {
+        pending.resolve(JSON.parse(data));
+      } catch (err) {
+        pending.reject(err instanceof Error ? err : new Error(String(err)));
+      }
+    } else {
+      pending.resolve(data); 
     }
   }
 
@@ -681,8 +682,8 @@ class TraverseSDK {
       const android = window[this.bridgeName]; // Android
       const rn = window.ReactNativeWebView; // React Native
 
-      if (ios) return ios.postMessage(payload);
-      if (android) return android.postMessage(id, event, data);
+      if (ios) return ios.postMessage(id, event, JSON.stringify(data));
+      if (android) return android.postMessage(id, event, JSON.stringify(data));
       if (rn) return rn.postMessage(JSON.stringify(payload));
     } catch (e) {
       console.error("❌ postToNative failed:", e);
