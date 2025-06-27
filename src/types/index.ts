@@ -1,31 +1,16 @@
 export interface TraverseResponse<T = any> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  requestId: string;
-  
-}
-
-export interface TraverseRequest {
+  id: number;
   event: string;
-  data?: any;
-  requestId: string;
+  data: T;
 }
 
-export interface ProfileData {
-  id: string;
-  name: string;
-  email: string;
-  avatar?: string;
-  preferences?: Record<string, any>;
+export interface TraverseRequest{
+  id:  number;
+  event: string;
+  data: any
 }
 
-export interface DeviceInfo {
-  platform: "ios" | "android" | "web";
-  version: string;
-  model?: string;
-  osVersion?: string;
-}
+
 
 export interface PendingRequest {
   resolve: (value: unknown) => void;
@@ -38,17 +23,14 @@ export type HandlerCallback<T = unknown> = (
   callback?: (response?: unknown) => void
 ) => void;
 
-export type NativeMessageEvent =
-  | MessageEvent<string | TraverseResponse>
-  | string
-  | object;
+
 // export interface TraverseResponse<T = any> {
 //   success: boolean;
 //   data?: T;
 //   error?: string;
 //   requestId: string;
 //   type?: string; // <-- Add this line
-  
+
 // }
 
 // export interface TraverseRequest {

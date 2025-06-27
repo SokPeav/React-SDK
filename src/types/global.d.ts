@@ -24,7 +24,7 @@ declare global {
 
     // Global callback function for native responses
     [GLOBAL_BRIDGE_CALLBACK_NAME]?: (
-      id: number,
+      id: number | string,
       event: string,
       data: string,
       action?: string

@@ -14,7 +14,6 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Traverse } from "./core/Traverse";
 // import { Traverse } from "traverse-sdk";
-import { DeviceInfo, ProfileData } from "./types";
 
 function generateBeautifulColor() {
   // Predefined beautiful color palettes
@@ -75,8 +74,8 @@ function generateBeautifulColor() {
 
 function App() {
   const [isConnected, setIsConnected] = useState(false);
-  const [profile, setProfile] = useState<ProfileData | null>(null);
-  const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null);
+  const [profile, setProfile] = useState(null);
+  const [deviceInfo, setDeviceInfo] = useState(null);
   const [locationInfo, setLocationInfo] = useState(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -96,6 +95,8 @@ function App() {
     const handlerId = Traverse.bridge("closeApp", (data: any, callback) => {
       console.log("✅ Native wants to close app:", data);
       closeCallbackRef.current = callback || null;
+      setCloseReason(data.reason);
+      setShowCloseDialog(true);
     });
 
     return () => {
@@ -106,7 +107,7 @@ function App() {
   const handleGetProfile = async () => {
     setLoading(true);
     try {
-      const profileData = (await Traverse.bridge("getProfile")) as ProfileData;
+      const profileData: any = await Traverse.bridge("getProfile");
       setProfile(profileData);
       setMessage("Profile loaded successfully!");
     } catch (error: any) {
@@ -118,7 +119,7 @@ function App() {
   const handleGetDeviceInfo = async () => {
     setLoading(true);
     try {
-      const deviceData = (await Traverse.bridge("getDeviceInfo")) as DeviceInfo;
+      const deviceData: any = await Traverse.bridge("getDeviceInfo");
       setDeviceInfo(deviceData);
       setMessage("Device info loaded successfully!");
     } catch (error: any) {
@@ -161,8 +162,6 @@ function App() {
       if (closeCallbackRef.current) {
         closeCallbackRef.current({ confirmed });
       }
-      // setShowCloseDialog(false);
-      // Traverse.bridge("closeApp", { reason: "User clicked X" });
     }
 
     setShowCloseDialog(false);

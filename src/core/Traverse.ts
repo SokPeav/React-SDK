@@ -1,11 +1,8 @@
-import {
-  TraverseRequest,
-  TraverseResponse,
-  HandlerCallback,
-  PendingRequest,
-  NativeMessageEvent,
-} from "../types";
 import { EventEmitter2 } from "eventemitter2";
+import {
+  HandlerCallback,
+  PendingRequest
+} from "../types";
 
 // class TraverseSDK {
 //   private static instance: TraverseSDK;
@@ -553,21 +550,12 @@ import { EventEmitter2 } from "eventemitter2";
 class TraverseSDK {
   private static instance: TraverseSDK;
   private readonly resolvers = new Map<number, PendingRequest>();
-  private readonly registeredHandlers = new Map<string, HandlerCallback>();
-  private handlerIdCounter = 0;
-  private baseNameToHandlerId = new Map<string, string>();
+  private readonly handlerCallbacks = new Map<string, HandlerCallback>();
   private readonly bridgeName = "TraverseBridge";
   private readonly bridgeCallBackName = `${this.bridgeName}NativeMessage`;
   private readonly emitter = new EventEmitter2();
   private constructor() {
     this.setupMessageListener();
-  }
-  private setupMessageListener(): void {
-    if (typeof window !== "undefined") {
-      // window.addEventListener("message", this.receiveFromNative);
-      // document.addEventListener("message", this.receiveFromNative);
-      window[this.bridgeCallBackName] = this.onCallback;
-    }
   }
   public static getInstance(): TraverseSDK {
     if (!TraverseSDK.instance) {
@@ -575,69 +563,12 @@ class TraverseSDK {
     }
     return TraverseSDK.instance;
   }
+  private setupMessageListener(): void {
+    if (typeof window !== "undefined") {
+      window[this.bridgeCallBackName] = this.onCallback;
+    }
+  }
 
-  // public receiveFromNative = (event: NativeMessageEvent): void => {
-  //   let message: any;
-
-  //   try {
-  //     if (typeof event === "string") {
-  //       message = JSON.parse(event);
-  //     } else if (event instanceof MessageEvent) {
-  //       if (typeof event.data === "string") {
-  //         message = JSON.parse(event.data);
-  //       } else {
-  //         message = event.data;
-  //       }
-  //     } else if (typeof event === "object" && event !== null) {
-  //       message = event as TraverseResponse;
-  //     } else {
-  //       console.warn("⚠️ Unknown event format. Ignored:", event);
-  //       return;
-  //     }
-
-  //     console.log(message);
-  //     console.log(this.resolvers);
-  //     // Check if it's a response to a pending requestAdd commentMore actions
-  //     if (message.requestId && this.resolvers.has(message.requestId)) {
-  //       console.log("here");
-  //       this.handleResponse(message);
-  //     }
-  //     // Check if it's a handler callback
-  //     else if (
-  //       message.handler &&
-  //       this.registeredHandlers.has(message.handler)
-  //     ) {
-  //       const callback = this.registeredHandlers.get(message.handler);
-  //       console.log(callback);
-  //       if (callback) {
-  //         callback(message.data, () => {});
-  //       }
-  //     }
-  //   } catch (error) {
-  //     console.error("❌ Failed to handle native message:", error);
-  //   }
-  // };
-
-  // private handleResponse(response: TraverseResponse): void {
-  //   console.log(response);
-  //   const pendingRequest = this.resolvers.get(response.requestId);
-  //   if (!pendingRequest) return;
-
-  //   if (response.success) {
-  //     pendingRequest.resolve(response.data);
-  //   } else {
-  //     pendingRequest.reject(new Error(response.error ?? "Unknown error"));
-  //   }
-  // }
-
-  /**
-   * Universal bridge function - handles both calling and registering handlers
-   *
-   * @param handler - Handler name
-   * @param paramsOrCallback - Parameters for calling or callback function for registering
-   * @param timeout - Timeout in milliseconds (only for calling handlers)
-   * @returns Promise<T> for calling handlers, string (handler ID) for registering handlers
-   */
   bridge<T = unknown>(
     handler: string,
     paramsOrCallback?: Record<string, unknown> | HandlerCallback<T>
@@ -645,55 +576,20 @@ class TraverseSDK {
     if (typeof paramsOrCallback === "function") {
       return this.registerHandler(handler, paramsOrCallback);
     }
-    return this.callHandler(handler, paramsOrCallback || {});
+    return this.callHandler(handler, paramsOrCallback);
   }
 
-  public onCallback = (
-    id: number,
-    event: string,
-    data: string,
-    action?: string
-  ): void => {
-    if (id === -1) {
-      // Native is calling JS handler
-      try {
-        const parsedData = JSON.parse(data);
-        const callback = action
-          ? (payload: any) => this.callHandler(action, payload)
-          : undefined;
-
-        this.emitter.emit(event, parsedData, callback);
-      } catch (err) {
-        console.error("❌ Failed to emit event:", err);
-      }
-      return;
-    }
-
-    // Native is responding to callHandler
-
-    const pending = this.resolvers.get(id);
-    if (!pending) return;
-
-    const { resolve, reject } = pending;
-
-    this.resolvers.delete(id);
-    try {
-      resolve(JSON.parse(data));
-    } catch (err) {
-      reject(err instanceof Error ? err : new Error(String(err)));
-    }
-  };
-
-  public async callHandler<T = unknown>(
+  async callHandler<T = unknown>(
     event: string,
     data: Record<string, any> = {}
   ): Promise<T> {
+    const id = this.generateRequestId();
     if (!this.available()) {
-      return Promise.reject(new Error("Not inside a mini app!"));
+      this.simulateNativeResponse(event, id);
+      // return Promise.reject(new Error("Not inside a mini app!"));
     }
 
     return new Promise((resolve, reject) => {
-      const id = Number(this.generateRequestId());
       this.resolvers.set(id, {
         resolve: resolve as (value: unknown) => void,
         reject,
@@ -706,16 +602,68 @@ class TraverseSDK {
     callback: HandlerCallback<T>
   ): string {
     this.emitter.on(event, callback);
+    this.handlerCallbacks.set(event, callback as HandlerCallback);
+
     return event;
   }
-
-  private generateRequestId(): string {
-    return `traverse_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  public unregister(handlerId: string): void {
+    const callback = this.handlerCallbacks.get(handlerId);
+    if (callback) {
+      this.emitter.off(handlerId, callback);
+      this.handlerCallbacks.delete(handlerId);
+    }
   }
 
-  unregister(handlerId: string): void {
-    if (!handlerId) return;
-    this.registeredHandlers.delete(handlerId);
+  public onCallback = (
+    id: number | string,
+    event: string,
+    data: string,
+    action?: string
+  ): void => {
+    const isEvent = id === -1 || typeof id !== "number";
+    if (isEvent) {
+      const eventName = typeof id === "string" ? id : event;
+      const jsonData =
+        typeof event === "string" && typeof data === "string" ? data : event;
+
+      this.handleNativeEvent(eventName, jsonData, action);
+    } else {
+      this.handleNativeResponse(id, data);
+    }
+  };
+
+  private handleNativeEvent(
+    event: string,
+    data: string,
+    action?: string
+  ): void {
+    try {
+      const parsedData = JSON.parse(data);
+      const callback = action
+        ? (payload: any) => this.callHandler(action, payload)
+        : undefined;
+      this.emitter.emit(event, parsedData, callback);
+    } catch (err) {
+      console.error("❌ Failed to emit event:", err);
+    }
+  }
+
+  private handleNativeResponse(id: number, data: string): void {
+    const pending = this.resolvers.get(id);
+    if (!pending) return;
+
+    this.resolvers.delete(id);
+    try {
+      pending.resolve(JSON.parse(data));
+    } catch (err) {
+      pending.reject(err instanceof Error ? err : new Error(String(err)));
+    }
+  }
+
+  private generateRequestId(): number {
+    return Number(
+      `${Date.now()}${Math.floor(100000 + Math.random() * 900000)}`
+    );
   }
   available(): boolean {
     return !!(
@@ -727,128 +675,58 @@ class TraverseSDK {
 
   private postToNative(id: number, event: string, data: unknown): void {
     const payload = { id, event, data };
-  const serializedData =
-      typeof data === "string" ? data : JSON.stringify(data);
+
     try {
       const ios = window.webkit?.messageHandlers?.[this.bridgeName]; //ios
       const android = window[this.bridgeName]; // Android
       const rn = window.ReactNativeWebView; // React Native
 
       if (ios) return ios.postMessage(payload);
-      if (android) return android.postMessage(id, event, serializedData);
+      if (android) return android.postMessage(id, event, data);
       if (rn) return rn.postMessage(JSON.stringify(payload));
-
     } catch (e) {
       console.error("❌ postToNative failed:", e);
     }
   }
 
-  // private simulateNativeResponse(request: TraverseRequest): void {
-  //   setTimeout(() => {
-  //     let mockData: unknown = {};
+  private simulateNativeResponse(event: string, id: number): void {
+    setTimeout(() => {
+      let mockData: unknown;
 
-  //     switch (request.handler) {
-  //       case "getProfile":
-  //         mockData = {
-  //           id: "mock-user-123",
-  //           name: "John Doe",
-  //           email: "john@example.com",
-  //           avatar: "https://i.pravatar.cc/150?img=12",
-  //         };
-  //         break;
+      switch (event) {
+        case "getProfile":
+          mockData = {
+            id: "mock-user-123",
+            name: "John Doe",
+            email: "john@example.com",
+            avatar: "https://i.pravatar.cc/150?img=12",
+          };
+          break;
 
-  //       case "getLocationInfo":
-  //         mockData = {
-  //           lat: "111",
-  //           lng: "2222",
-  //         };
-  //         break;
+        case "getLocationInfo":
+          mockData = {
+            lat: "111",
+            lng: "2222",
+          };
+          break;
 
-  //       case "getDeviceInfo":
-  //         mockData = {
-  //           platform: "web" as const,
-  //           version: "1.0.0",
-  //           model: "Browser",
-  //           osVersion: navigator.userAgent,
-  //         };
-  //         break;
-  //       case "setBarTitle":
-  //         const { title, color, bgColor } = request.params || {};
-  //         console.log("🖼️ Mock set bar title:", title, color, bgColor);
-  //         mockData = { success: true };
-  //         break;
-  //       case "closeApp": {
-  //         const handlerId = this.baseNameToHandlerId.get("closeApp"); // ✅ get full key like "closeApp_1"
-  //         const callback = this.registeredHandlers.get(handlerId || "");
-  //         console.log(callback);
-  //         if (callback) {
-  //           callback(request.params || {}, (response) => {
-  //             console.log(response);
-  //             this.handleResponse({
-  //               success: true,
-  //               data: response,
-  //               requestId: request.requestId,
-  //             });
-  //           });
-  //         } else {
-  //           this.handleResponse({
-  //             success: false,
-  //             error: "No closeApp handler registered",
-  //             requestId: request.requestId,
-  //           });
-  //         }
-  //         break;
-  //       }
+        case "getDeviceInfo":
+          mockData = {
+            platform: "web" as const,
+            version: "1.0.0",
+            model: "Browser",
+            osVersion: navigator.userAgent,
+          };
+          break;
 
-  //       case "navigateTo": {
-  //         const callback = this.registeredHandlers.get("navigateTo");
-  //         if (callback) {
-  //           callback(request.params, (response) => {
-  //             this.handleResponse({
-  //               success: true,
-  //               data: response || { confirmed: true },
-  //               requestId: request.requestId,
-  //             });
-  //           });
-  //         } else {
-  //           this.handleResponse({
-  //             success: false,
-  //             error: "No navigateTo handler registered",
-  //             requestId: request.requestId,
-  //           });
-  //         }
-  //         break;
-  //       }
+        default:
+          mockData = { ok: true };
+      }
 
-  //       case "doPayment":
-  //         // Simulate payment processing
-  //         const paymentParams = request.params as {
-  //           amount: string;
-  //           currency: string;
-  //           account: number;
-  //         };
-
-  //         // Simulate random success/failure for demo
-  //         mockData = {
-  //           status: "success",
-  //           transactionId: `txn_${Date.now()}`,
-  //           account: paymentParams.account,
-  //           amount: paymentParams.amount,
-  //           currency: paymentParams.currency,
-  //         };
-  //         break;
-
-  //       default:
-  //         mockData = { success: true };
-  //     }
-
-  //     this.handleResponse({
-  //       success: true,
-  //       data: mockData,
-  //       requestId: request.requestId,
-  //     });
-  //   }, 300);
-  // }
+      // Simulate native calling back into JS
+      window.TraverseBridgeNativeMessage?.(id, event, JSON.stringify(mockData));
+    }, 300);
+  }
 }
 export const Traverse = TraverseSDK.getInstance();
 export default Traverse;
